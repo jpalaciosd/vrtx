@@ -216,10 +216,45 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Perfil demo */}
+      {/* Videos */}
       <section className="py-24 px-4 bg-vrtx-dark">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="font-display text-4xl md:text-5xl text-center mb-4">VRTX EN ACCIÓN</h2>
+          <p className="text-vrtx-gray text-center mb-16">Mira cómo se vive la experiencia VRTX</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="rounded-card overflow-hidden border border-white/5 bg-vrtx-black">
+              <video
+                src="/video-1.mp4"
+                controls
+                playsInline
+                muted
+                loop
+                preload="metadata"
+                className="w-full aspect-[9/16] object-cover"
+                poster=""
+              />
+            </div>
+            <div className="rounded-card overflow-hidden border border-white/5 bg-vrtx-black">
+              <video
+                src="/video-2.mp4"
+                controls
+                playsInline
+                muted
+                loop
+                preload="metadata"
+                className="w-full aspect-[9/16] object-cover"
+                poster=""
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Perfil demo */}
+      <section className="py-24 px-4">
         <div className="max-w-5xl mx-auto text-center">
           <h2 className="font-display text-4xl md:text-5xl mb-4">TU PERFIL DIGITAL</h2>
+
           <p className="text-vrtx-gray mb-10 max-w-lg mx-auto">
             Así se ve cuando alguien escanea tu gorra VRTX
           </p>
