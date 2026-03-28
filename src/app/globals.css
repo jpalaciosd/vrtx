@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent: #00d4ff;
+  --accent-rgb: 0, 212, 255;
+  --bg: #060810;
+  --card: #0f1526;
+  --text: #ffffff;
+  --text-muted: #8899bb;
+}
+
+[data-theme="cyber"] {
+  --accent: #00d4ff;
+  --accent-rgb: 0, 212, 255;
+}
+
+[data-theme="gold"] {
+  --accent: #d4a843;
+  --accent-rgb: 212, 168, 67;
+}
+
+[data-theme="neon"] {
+  --accent: #39ff14;
+  --accent-rgb: 57, 255, 20;
+}
+
+[data-theme="rose"] {
+  --accent: #ff2d7b;
+  --accent-rgb: 255, 45, 123;
+}
+
+[data-theme="white"] {
+  --accent: #1a1a2e;
+  --accent-rgb: 26, 26, 46;
+  --bg: #f5f5f5;
+  --card: #ffffff;
+  --text: #1a1a2e;
+  --text-muted: #666688;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: "Rajdhani", sans-serif;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(var(--accent-rgb), 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.6);
+}
+
+/* Accent color utility */
+.text-accent { color: var(--accent); }
+.bg-accent { background-color: var(--accent); }
+.border-accent { border-color: var(--accent); }
+.shadow-accent { box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.3); }
+.bg-card { background-color: var(--card); }
+.text-muted { color: var(--text-muted); }
+
+/* NFC activation overlay */
+.nfc-activation {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.nfc-triangle {
+  width: 0;
+  height: 0;
+  border-left: 60px solid transparent;
+  border-right: 60px solid transparent;
+  border-bottom: 104px solid var(--accent);
+  filter: drop-shadow(0 0 30px rgba(var(--accent-rgb), 0.6));
+}
+
+/* Heatmap grid */
+.heatmap-cell {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: rgba(var(--accent-rgb), 0.1);
+}
+.heatmap-cell.level-1 { background: rgba(var(--accent-rgb), 0.25); }
+.heatmap-cell.level-2 { background: rgba(var(--accent-rgb), 0.5); }
+.heatmap-cell.level-3 { background: rgba(var(--accent-rgb), 0.75); }
+.heatmap-cell.level-4 { background: rgba(var(--accent-rgb), 1); }
+
+/* Spotify progress bar */
+.spotify-progress {
+  height: 3px;
+  background: rgba(var(--accent-rgb), 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.spotify-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  animation: progressMove 30s linear infinite;
+}
+@keyframes progressMove {
+  0% { width: 30%; }
+  100% { width: 90%; }
+}
