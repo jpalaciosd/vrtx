@@ -2,6 +2,7 @@
 
 import VrtxLogo from "@/components/VrtxLogo";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const tiers = [
   {
@@ -59,6 +60,7 @@ const steps = [
 ];
 
 export default function LandingPage() {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", tier: "CORE" });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -80,9 +82,15 @@ export default function LandingPage() {
             <a href="#preventa" className="hover:text-accent transition-colors">Preventa</a>
           </div>
           <div className="flex items-center gap-3">
-            <a href="/login" className="text-sm text-vrtx-gray hover:text-accent transition-colors hidden md:inline">
-              Acceder
-            </a>
+            {user ? (
+              <a href="/dashboard" className="text-sm text-accent hover:text-white transition-colors font-semibold">
+                Mi Dashboard
+              </a>
+            ) : (
+              <a href="/login" className="text-sm text-vrtx-gray hover:text-accent transition-colors hidden md:inline">
+                Acceder
+              </a>
+            )}
             <a
               href="#preventa"
               className="px-4 py-2 bg-accent text-vrtx-black font-semibold text-sm rounded-pill hover:opacity-90 transition-opacity"
