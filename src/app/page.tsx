@@ -123,6 +123,45 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Videos publicitarios */}
+      <section className="py-16 px-4 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-vrtx-black via-transparent to-vrtx-black pointer-events-none z-10" />
+        <div className="max-w-4xl mx-auto relative z-20">
+          <h2 className="font-display text-3xl md:text-4xl text-center mb-2">VRTX EN ACCIÓN</h2>
+          <p className="text-vrtx-gray text-center mb-10 text-sm font-mono tracking-wider">LA GORRA QUE CONECTA</p>
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6">
+            <div className="w-full max-w-[280px] md:max-w-[260px] rounded-2xl overflow-hidden border border-white/10 shadow-accent relative group">
+              <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-vrtx-black/70 backdrop-blur-sm rounded-pill border border-accent/30">
+                <span className="font-mono text-[10px] text-accent">▶ DROP 001</span>
+              </div>
+              <video
+                src="/video-1.mp4"
+                autoPlay
+                playsInline
+                muted
+                loop
+                preload="auto"
+                className="w-full aspect-[9/16] object-contain bg-vrtx-black"
+              />
+            </div>
+            <div className="w-full max-w-[280px] md:max-w-[260px] rounded-2xl overflow-hidden border border-white/10 shadow-accent relative group">
+              <div className="absolute top-3 left-3 z-10 px-2 py-0.5 bg-vrtx-black/70 backdrop-blur-sm rounded-pill border border-accent/30">
+                <span className="font-mono text-[10px] text-accent">▶ WEAR YOUR VERTEX</span>
+              </div>
+              <video
+                src="/video-2.mp4"
+                autoPlay
+                playsInline
+                muted
+                loop
+                preload="auto"
+                className="w-full aspect-[9/16] object-contain bg-vrtx-black"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Cómo funciona */}
       <section id="como-funciona" className="py-24 px-4">
         <div className="max-w-5xl mx-auto">
@@ -216,42 +255,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Videos */}
-      <section className="py-24 px-4 bg-vrtx-dark">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="font-display text-4xl md:text-5xl text-center mb-4">VRTX EN ACCIÓN</h2>
-          <p className="text-vrtx-gray text-center mb-16">Mira cómo se vive la experiencia VRTX</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="rounded-card overflow-hidden border border-white/5 bg-vrtx-black">
-              <video
-                src="/video-1.mp4"
-                controls
-                playsInline
-                muted
-                loop
-                preload="metadata"
-                className="w-full aspect-[9/16] object-cover"
-                poster=""
-              />
-            </div>
-            <div className="rounded-card overflow-hidden border border-white/5 bg-vrtx-black">
-              <video
-                src="/video-2.mp4"
-                controls
-                playsInline
-                muted
-                loop
-                preload="metadata"
-                className="w-full aspect-[9/16] object-cover"
-                poster=""
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Perfil demo */}
-      <section className="py-24 px-4">
+      <section className="py-24 px-4 bg-vrtx-dark">
         <div className="max-w-5xl mx-auto text-center">
           <h2 className="font-display text-4xl md:text-5xl mb-4">TU PERFIL DIGITAL</h2>
 
