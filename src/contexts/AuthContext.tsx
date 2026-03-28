@@ -30,15 +30,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string, email: string, name: string, avatar: string) => {
-    // Try to get existing profile
-    const { data } = await supabase
+    // Try by google_id first
+    let { data } = await supabase
       .from('users')
       .select('*')
       .eq('google_id', userId)
-      .single();
+      .maybeSingle();
+
+    if (data) { setProfile(data); return; }
+
+    // Try by email
+    ({ data } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle());
 
     if (data) {
-      setProfile(data);
+      // Link google_id to existing user
+      await supabase.from('users').update({ google_id: userId, avatar_url: avatar || data.avatar_url }).eq('id', data.id);
+      setProfile({ ...data, google_id: userId });
       return;
     }
 
@@ -54,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         google_id: userId,
       })
       .select()
-      .single();
+      .maybeSingle();
 
     setProfile(newUser);
   };
@@ -65,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('users')
       .select('*')
       .eq('google_id', user.id)
-      .single();
+      .maybeSingle();
     if (data) setProfile(data);
   };
 
