@@ -28,7 +28,7 @@ export default function DisenarPage() {
     colorSecundario: 'none',
     intensidad: 'balanced',
   });
-  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{ imageUrl: string; revisedPrompt: string } | null>(null);
   const [error, setError] = useState('');
 
@@ -55,7 +55,7 @@ export default function DisenarPage() {
   };
 
   const generate = async () => {
-    setLoading(true);
+    setGenerating(true);
     setError('');
     setResult(null);
     try {
@@ -84,7 +84,7 @@ export default function DisenarPage() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error desconocido');
     } finally {
-      setLoading(false);
+      setGenerating(false);
     }
   };
 
@@ -138,7 +138,7 @@ export default function DisenarPage() {
         </div>
 
         {/* Step content */}
-        {!result && !loading && (
+        {!result && !generating && (
           <div className="space-y-6">
             {/* STEP 0: Estilo */}
             {step === 0 && (
@@ -409,7 +409,7 @@ export default function DisenarPage() {
         )}
 
         {/* Loading */}
-        {loading && (
+        {generating && (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="relative w-24 h-24 mb-6">
               <div className="absolute inset-0 border-2 border-[#00d4ff]/20 rounded-full" />
