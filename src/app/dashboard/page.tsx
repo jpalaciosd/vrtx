@@ -85,6 +85,8 @@ export default function DashboardPage() {
   };
 
   const [designs, setDesigns] = useState<Array<{ id: string; name: string; image_url: string; estilo: string; created_at: string }>>([]);
+  const [chip, setChip] = useState<{ chip_id: string; serial_number: string; tier: string; colorway: string } | null>(null);
+  const [scans, setScans] = useState<Array<{ id: string; city: string | null; country: string | null; scanned_at: string }>>([]);
 
   // Load user designs
   useEffect(() => {
@@ -97,6 +99,30 @@ export default function DashboardPage() {
         .then(({ data }) => { if (data) setDesigns(data); });
     }
   }, [profile, activeTab]);
+
+  // Load chip + scans
+  useEffect(() => {
+    if (profile) {
+      supabase
+        .from('chips')
+        .select('chip_id, serial_number, tier, colorway')
+        .eq('owner_id', profile.id)
+        .limit(1)
+        .maybeSingle()
+        .then(({ data: c }) => {
+          if (c) {
+            setChip(c);
+            supabase
+              .from('scans')
+              .select('id, city, country, scanned_at')
+              .eq('chip_id', c.chip_id)
+              .order('scanned_at', { ascending: false })
+              .limit(200)
+              .then(({ data: s }) => { if (s) setScans(s); });
+          }
+        });
+    }
+  }, [profile]);
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "perfil", label: "Perfil", icon: "👤" },
@@ -310,11 +336,116 @@ export default function DashboardPage() {
         {activeTab === "analytics" && (
           <>
             <h2 className="font-display text-2xl text-accent">Analytics</h2>
-            <div className="bg-card border border-white/5 rounded-card p-8 text-center">
-              <p className="text-4xl mb-3">📊</p>
-              <p className="text-[#8899bb]">Las estadísticas se activarán cuando tu chip NFC esté vinculado.</p>
-              <p className="text-xs text-[#8899bb]/50 mt-2">Cada escaneo de tu gorra aparecerá aquí con ubicación y hora.</p>
-            </div>
+
+            {!chip ? (
+              <div className="bg-card border border-white/5 rounded-card p-8 text-center">
+                <p className="text-4xl mb-3">📊</p>
+                <p className="text-[#8899bb]">No tienes un chip VRTX vinculado aún.</p>
+              </div>
+            ) : (
+              <>
+                {/* Chip info */}
+                <div className="bg-card border border-white/5 rounded-card p-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-mono text-xs text-muted">TU CHIP</p>
+                    <p className="text-sm font-semibold">{chip.serial_number}</p>
+                  </div>
+                  <span className="px-3 py-1 rounded-pill bg-accent/10 text-accent text-xs font-mono font-bold">
+                    {chip.tier}
+                  </span>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-card border border-white/5 rounded-card p-4 text-center">
+                    <p className="font-display text-3xl text-accent">{scans.length}</p>
+                    <p className="text-xs text-muted font-mono">Escaneos</p>
+                  </div>
+                  <div className="bg-card border border-white/5 rounded-card p-4 text-center">
+                    <p className="font-display text-3xl text-accent">
+                      {[...new Set(scans.filter(s => s.city).map(s => s.city))].length}
+                    </p>
+                    <p className="text-xs text-muted font-mono">Ciudades</p>
+                  </div>
+                  <div className="bg-card border border-white/5 rounded-card p-4 text-center">
+                    <p className="font-display text-3xl text-accent">
+                      {[...new Set(scans.filter(s => s.country).map(s => s.country))].length}
+                    </p>
+                    <p className="text-xs text-muted font-mono">Países</p>
+                  </div>
+                </div>
+
+                {/* Profile link + QR */}
+                <div className="bg-card border border-white/5 rounded-card p-4">
+                  <p className="font-mono text-xs text-muted mb-2">TU PERFIL NFC</p>
+                  <a
+                    href={`/p/${chip.chip_id}`}
+                    target="_blank"
+                    className="text-accent text-sm hover:underline break-all"
+                  >
+                    vrtx-seven.vercel.app/p/{chip.chip_id}
+                  </a>
+                </div>
+
+                {/* Scans by city */}
+                {scans.some(s => s.city) && (
+                  <div className="bg-card border border-white/5 rounded-card p-5">
+                    <h3 className="font-display text-lg text-accent mb-3">Por ciudad</h3>
+                    <div className="space-y-3">
+                      {(() => {
+                        const cities = scans.filter(s => s.city).reduce((acc, s) => {
+                          acc[s.city!] = (acc[s.city!] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>);
+                        const sorted = Object.entries(cities).sort((a, b) => b[1] - a[1]);
+                        const max = sorted[0]?.[1] || 1;
+                        return sorted.map(([city, count]) => (
+                          <div key={city} className="flex items-center gap-3">
+                            <span className="text-sm w-28 truncate">{city}</span>
+                            <div className="flex-1 bg-vrtx-black rounded-full h-3 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-accent transition-all"
+                                style={{ width: `${(count / max) * 100}%` }}
+                              />
+                            </div>
+                            <span className="font-mono text-sm text-accent w-8 text-right">{count}</span>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent scans */}
+                <div className="bg-card border border-white/5 rounded-card p-5">
+                  <h3 className="font-display text-lg text-accent mb-3">Últimos escaneos</h3>
+                  {scans.length === 0 ? (
+                    <p className="text-[#8899bb] text-sm text-center py-4">Aún no hay escaneos. ¡Comparte tu QR!</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {scans.slice(0, 10).map((scan) => (
+                        <div key={scan.id} className="flex items-center justify-between bg-vrtx-black/50 rounded-card px-4 py-3">
+                          <div>
+                            <p className="text-sm">📍 {scan.city || "Ubicación desconocida"}</p>
+                            <p className="text-xs text-muted font-mono">
+                              {new Date(scan.scanned_at).toLocaleDateString("es-CO", {
+                                day: "numeric",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                          </div>
+                          {scan.country && (
+                            <span className="text-xs text-muted">{scan.country}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </>
         )}
 
