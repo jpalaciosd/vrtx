@@ -61,6 +61,8 @@ const steps = [
 export default function LandingPage() {
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", tier: "CORE" });
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
 
   return (
     <div data-theme="cyber" className="min-h-screen bg-vrtx-black text-white overflow-x-hidden">
@@ -306,9 +308,23 @@ export default function LandingPage() {
             </div>
           ) : (
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
-                setSubmitted(true);
+                setSubmitting(true);
+                setFormError("");
+                try {
+                  const res = await fetch("/api/preorder", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(formData),
+                  });
+                  if (!res.ok) throw new Error("Error al registrar");
+                  setSubmitted(true);
+                } catch {
+                  setFormError("Error al registrar. Intenta de nuevo.");
+                } finally {
+                  setSubmitting(false);
+                }
               }}
               className="bg-card border border-white/5 rounded-card p-8 space-y-5"
             >
@@ -357,11 +373,15 @@ export default function LandingPage() {
                   <option value="LEGENDARY">LEGENDARY — $350.000 – $500.000</option>
                 </select>
               </div>
+              {formError && (
+                <p className="text-red-400 text-sm text-center">{formError}</p>
+              )}
               <button
                 type="submit"
-                className="w-full py-3 bg-accent text-vrtx-black font-bold text-lg rounded-pill hover:opacity-90 transition-opacity"
+                disabled={submitting}
+                className="w-full py-3 bg-accent text-vrtx-black font-bold text-lg rounded-pill hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                Reservar mi VRTX
+                {submitting ? "Registrando..." : "Reservar mi VRTX"}
               </button>
               <p className="text-vrtx-gray text-xs text-center">
                 Sin compromiso de pago. Te contactaremos para confirmar.
