@@ -286,7 +286,7 @@ export default function DashboardPage() {
                     <button
                       onClick={async () => {
                         if (!confirm('¿Eliminar este diseño?')) return;
-                        await supabase.from('designs').delete().eq('id', d.id);
+                        await fetch(`/api/designs/${d.id}`, { method: 'DELETE' });
                         setDesigns(designs.filter((x) => x.id !== d.id));
                       }}
                       className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 text-red-400 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
