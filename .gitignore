@@ -11,3 +11,4 @@ node_modules/
 out/
 node_modules/
 .env.local
+.vercel
