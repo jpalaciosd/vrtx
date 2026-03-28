@@ -281,8 +281,18 @@ export default function DashboardPage() {
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 {designs.map((d) => (
-                  <div key={d.id} className="bg-card border border-white/5 rounded-card overflow-hidden">
+                  <div key={d.id} className="bg-card border border-white/5 rounded-card overflow-hidden relative group">
                     <img src={d.image_url} alt={d.name || 'Diseño VRTX'} className="w-full aspect-square object-cover" />
+                    <button
+                      onClick={async () => {
+                        if (!confirm('¿Eliminar este diseño?')) return;
+                        await supabase.from('designs').delete().eq('id', d.id);
+                        setDesigns(designs.filter((x) => x.id !== d.id));
+                      }}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 text-red-400 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
+                    >
+                      ✕
+                    </button>
                     <div className="p-3">
                       <p className="text-sm font-semibold truncate">{d.name || 'Sin nombre'}</p>
                       <p className="text-xs text-muted font-mono mt-1">

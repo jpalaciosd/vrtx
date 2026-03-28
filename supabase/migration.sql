@@ -156,5 +156,6 @@ CREATE POLICY "Preorders insert" ON preorders FOR INSERT WITH CHECK (true);
 CREATE POLICY "Users update" ON users FOR UPDATE USING (true);
 CREATE POLICY "Users insert" ON users FOR INSERT WITH CHECK (true);
 CREATE POLICY "Designs insert" ON designs FOR INSERT WITH CHECK (true);
+CREATE POLICY "Designs delete" ON designs FOR DELETE USING (true);
 CREATE POLICY "Portfolio insert" ON portfolio_items FOR INSERT WITH CHECK (true);
 CREATE POLICY "Store insert" ON store_items FOR INSERT WITH CHECK (true);
