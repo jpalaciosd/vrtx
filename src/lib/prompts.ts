@@ -115,62 +115,40 @@ export function buildPrompt(options: DesignOptions): string {
     ? `Include the text "${texto.trim().toUpperCase()}" integrated into the design with style-appropriate lettering.`
     : "";
 
+  const photoBase = `Professional product photography of a single black premium snapback cap with flat brim, sitting on a dark matte display stand. Shot with a 50mm lens, shallow depth of field, soft studio lighting with dramatic rim light. The cap is shown from a 3/4 front angle, complete and fully visible. The front panel features a ${colorName}-colored thread embroidery design.`;
+
+  const photoEnd = `The embroidery uses max 3 thread colors on the black fabric: ${colorName}${secName !== "none" ? ` and ${secName}` : ""}. ${textLine} The cap looks real, tangible, premium. Single image, single cap, no duplicates, no split compositions. Dark moody background with subtle bokeh. Style reference: high-end streetwear product photography, magazine quality.`;
+
   const bases: Record<string, string> = {
-    vertex: `Embroidery design for a black snapback cap, top-down flat view of the front panel only.
-Geometric futuristic style. Sacred geometry meets circuit board aesthetics.
-Central composition built around triangular shapes and the VRTX vertex triangle symbol.
+    vertex: `${photoBase}
+The embroidery style is geometric futuristic — sacred geometry meets circuit board aesthetics. Triangular shapes and angular patterns form the composition.
 ${elementDesc}
-${textLine}
-Primary color: ${colorName}. Secondary accent: ${secName}.
 Intensity: ${intensityDesc}.
-Black background. Max 3 thread colors. Clean vector line art suitable for embroidery.
-No gradients, no photorealism, no shading. Solid fills and outlines only.
-Style reference: tech-wear brand aesthetic, premium streetwear.`,
+${photoEnd}`,
 
-    wave: `Embroidery design for a black snapback cap, top-down flat view of the front panel only.
-Fluid topographic style. Flowing contour lines like terrain maps mixed with ocean waves.
-Organic curves that create depth and movement across the cap panel.
+    wave: `${photoBase}
+The embroidery style is fluid topographic — flowing contour lines like terrain maps mixed with ocean waves. Organic curves creating depth and movement.
 ${elementDesc}
-${textLine}
-Primary color: ${colorName}. Secondary accent: ${secName}.
 Intensity: ${intensityDesc}.
-Black background. Max 3 thread colors. Clean vector lines suitable for embroidery.
-No gradients, no photorealism. Continuous line art only.
-Style reference: topographic maps, Japanese wave art, modern minimalism.`,
+${photoEnd}`,
 
-    glitch: `Embroidery design for a black snapback cap, top-down flat view of the front panel only.
-Cyberpunk glitch style. Digital distortion, scan lines, data corruption aesthetic.
-The design looks like a digital image breaking apart with horizontal shift artifacts.
+    glitch: `${photoBase}
+The embroidery style is cyberpunk glitch — digital distortion, scan lines, data corruption aesthetic. Horizontal shift artifacts and fragmented shapes.
 ${elementDesc}
-${textLine}
-Primary color: ${colorName}. Secondary accent: ${secName}.
 Intensity: ${intensityDesc}.
-Black background. Max 3 thread colors. Designed for thread embroidery.
-No gradients. Sharp edges, horizontal lines, pixel-like blocks.
-Style reference: cyberpunk 2077, vaporwave, digital decay.`,
+${photoEnd}`,
 
-    heritage: `Embroidery design for a black snapback cap, top-down flat view of the front panel only.
-Premium heritage style. Classic emblem aesthetic with modern edge.
-Shield or crest composition with clean symmetry and refined details.
+    heritage: `${photoBase}
+The embroidery style is premium heritage — classic emblem with modern edge. Shield or crest composition with clean symmetry. Includes subtle ornamental framing.
 ${elementDesc}
-${textLine}
-Include subtle laurel branches, stars, or geometric ornaments framing the design.
-Primary color: ${colorName}. Secondary accent: ${secName}.
 Intensity: ${intensityDesc}.
-Black background. Max 3 thread colors. Vector line art for embroidery.
-No gradients, no photorealism. Heraldic flat style.
-Style reference: luxury fashion house crests, modern coat of arms, Ralph Lauren meets tech.`,
+${photoEnd}`,
 
-    primal: `Embroidery design for a black snapback cap, top-down flat view of the front panel only.
-Primal street style. Raw, bold, aggressive urban energy.
-Thick strokes, sharp angles, graffiti-influenced but clean enough for embroidery.
+    primal: `${photoBase}
+The embroidery style is primal street — raw, bold, aggressive urban energy. Thick strokes, sharp angles, graffiti-influenced but clean embroidery.
 ${elementDesc}
-${textLine}
-Primary color: ${colorName}. Secondary accent: ${secName}.
 Intensity: ${intensityDesc}.
-Black background. Max 3 thread colors. Designed for thread embroidery.
-No gradients. Thick outlines, solid fills, sharp points.
-Style reference: streetwear brands, tattoo flash art, urban murals.`,
+${photoEnd}`,
   };
 
   return bases[estilo] || bases.vertex;
