@@ -73,8 +73,8 @@ export default function LandingPage() {
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-body text-vrtx-gray">
             <a href="#como-funciona" className="hover:text-accent transition-colors">Cómo funciona</a>
+            <a href="/disenar" className="hover:text-accent transition-colors">Diseñar</a>
             <a href="#tiers" className="hover:text-accent transition-colors">Tiers</a>
-            <a href="#colorways" className="hover:text-accent transition-colors">Colorways</a>
             <a href="#preventa" className="hover:text-accent transition-colors">Preventa</a>
           </div>
           <a
@@ -252,6 +252,24 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Diseñador CTA */}
+      <section className="py-24 px-4 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(var(--accent-rgb),0.06)_0%,transparent_70%)]" />
+        <div className="max-w-3xl mx-auto text-center relative z-10">
+          <span className="font-mono text-xs text-accent tracking-[0.3em]">POWERED BY AI</span>
+          <h2 className="font-display text-4xl md:text-5xl mt-3 mb-4">DISEÑA TU GORRA</h2>
+          <p className="text-vrtx-gray max-w-lg mx-auto mb-10">
+            Elige estilo, colores e ícono — nuestra IA genera un diseño único de bordado para tu gorra VRTX. Ninguna es igual a otra.
+          </p>
+          <a
+            href="/disenar"
+            className="inline-block px-10 py-4 bg-accent text-vrtx-black font-bold text-lg rounded-pill hover:opacity-90 transition-opacity"
+          >
+            🔺 Crear mi diseño
+          </a>
         </div>
       </section>
 
