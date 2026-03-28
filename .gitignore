@@ -1,9 +1,11 @@
-node_modules/
-.next/
-out/
-.env
-.env.local
-.env*.local
+
 *.tsbuildinfo
-next-env.d.ts
+-e .env
+.env
+.env*.local
 .env.local
+.next/
+/src/generated/prisma
+next-env.d.ts
+node_modules/
+out/
