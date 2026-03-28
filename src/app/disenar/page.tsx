@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase-browser';
 import {
   estilos,
   elementos,
@@ -14,6 +17,8 @@ import {
 const steps = ['Estilo', 'Elemento', 'Colores', 'Texto', 'Intensidad'];
 
 export default function DisenarPage() {
+  const router = useRouter();
+  const { user, profile, loading } = useAuth();
   const [step, setStep] = useState(0);
   const [options, setOptions] = useState<DesignOptions>({
     estilo: '',
@@ -26,6 +31,23 @@ export default function DisenarPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ imageUrl: string; revisedPrompt: string } | null>(null);
   const [error, setError] = useState('');
+
+  // Redirect if not logged in
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [loading, user, router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#060810] flex items-center justify-center">
+        <div className="w-12 h-12 border-2 border-[#00d4ff] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return null;
 
   const canAdvance = () => {
     if (step === 0) return !!options.estilo;
@@ -45,6 +67,20 @@ export default function DisenarPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error generando diseño');
       setResult({ imageUrl: data.imageUrl, revisedPrompt: data.revisedPrompt });
+
+      // Save design to Supabase
+      if (profile) {
+        await supabase.from('designs').insert({
+          image_url: data.imageUrl,
+          prompt_used: data.revisedPrompt || data.prompt,
+          estilo: options.estilo,
+          elemento: options.elemento,
+          color_dominante: options.colorDominante,
+          intensidad: options.intensidad,
+          name: `${options.estilo.toUpperCase()} — ${new Date().toLocaleDateString('es-CO')}`,
+          owner_id: profile.id,
+        });
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error desconocido');
     } finally {

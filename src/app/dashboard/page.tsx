@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase-browser";
 import { themes, modes, ThemeName, ModeName } from "@/lib/themes";
 
-type Tab = "perfil" | "analytics" | "sport" | "tienda" | "config";
+type Tab = "perfil" | "disenos" | "analytics" | "sport" | "tienda" | "config";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -84,8 +84,23 @@ export default function DashboardPage() {
     }
   };
 
+  const [designs, setDesigns] = useState<Array<{ id: string; name: string; image_url: string; estilo: string; created_at: string }>>([]);
+
+  // Load user designs
+  useEffect(() => {
+    if (profile) {
+      supabase
+        .from('designs')
+        .select('id, name, image_url, estilo, created_at')
+        .eq('owner_id', profile.id)
+        .order('created_at', { ascending: false })
+        .then(({ data }) => { if (data) setDesigns(data); });
+    }
+  }, [profile, activeTab]);
+
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "perfil", label: "Perfil", icon: "👤" },
+    { id: "disenos", label: "Diseños", icon: "🎨" },
     { id: "analytics", label: "Analytics", icon: "📊" },
     { id: "sport", label: "Sport", icon: "🏋️" },
     { id: "tienda", label: "Tienda", icon: "🛍️" },
@@ -236,6 +251,48 @@ export default function DashboardPage() {
               </button>
               {saveMsg && <p className="text-center text-sm text-accent">{saveMsg}</p>}
             </div>
+          </>
+        )}
+
+        {/* ===== DISEÑOS TAB ===== */}
+        {activeTab === "disenos" && (
+          <>
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-2xl text-accent">Mis Diseños</h2>
+              <a
+                href="/disenar"
+                className="px-4 py-2 bg-accent text-vrtx-black font-bold text-sm rounded-pill hover:opacity-90 transition-opacity"
+              >
+                + Crear diseño
+              </a>
+            </div>
+
+            {designs.length === 0 ? (
+              <div className="bg-card border border-white/5 rounded-card p-8 text-center">
+                <p className="text-4xl mb-3">🎨</p>
+                <p className="text-[#8899bb]">Aún no tienes diseños.</p>
+                <a
+                  href="/disenar"
+                  className="inline-block mt-4 px-6 py-2 bg-accent text-vrtx-black font-bold text-sm rounded-pill hover:opacity-90 transition-opacity"
+                >
+                  Crear mi primer diseño
+                </a>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {designs.map((d) => (
+                  <div key={d.id} className="bg-card border border-white/5 rounded-card overflow-hidden">
+                    <img src={d.image_url} alt={d.name || 'Diseño VRTX'} className="w-full aspect-square object-cover" />
+                    <div className="p-3">
+                      <p className="text-sm font-semibold truncate">{d.name || 'Sin nombre'}</p>
+                      <p className="text-xs text-muted font-mono mt-1">
+                        {d.estilo?.toUpperCase()} · {new Date(d.created_at).toLocaleDateString('es-CO')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
 
