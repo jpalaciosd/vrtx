@@ -29,8 +29,27 @@ export default function DisenarPage() {
     intensidad: 'balanced',
   });
   const [generating, setGenerating] = useState(false);
-  const [result, setResult] = useState<{ imageUrl: string; revisedPrompt: string } | null>(null);
+  const [result, setResult] = useState<{ imageUrl: string; revisedPrompt: string; prompt?: string } | null>(null);
   const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [savingDesign, setSavingDesign] = useState(false);
+
+  const saveDesign = async () => {
+    if (!profile || !result) return;
+    setSavingDesign(true);
+    await supabase.from('designs').insert({
+      image_url: result.imageUrl,
+      prompt_used: result.revisedPrompt || result.prompt,
+      estilo: options.estilo,
+      elemento: options.elemento,
+      color_dominante: options.colorDominante,
+      intensidad: options.intensidad,
+      name: `${options.estilo.toUpperCase()} — ${new Date().toLocaleDateString('es-CO')}`,
+      owner_id: profile.id,
+    });
+    setSavingDesign(false);
+    setSaved(true);
+  };
 
   // Redirect if not logged in
   useEffect(() => {
@@ -66,21 +85,8 @@ export default function DisenarPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error generando diseño');
-      setResult({ imageUrl: data.imageUrl, revisedPrompt: data.revisedPrompt });
-
-      // Save design to Supabase
-      if (profile) {
-        await supabase.from('designs').insert({
-          image_url: data.imageUrl,
-          prompt_used: data.revisedPrompt || data.prompt,
-          estilo: options.estilo,
-          elemento: options.elemento,
-          color_dominante: options.colorDominante,
-          intensidad: options.intensidad,
-          name: `${options.estilo.toUpperCase()} — ${new Date().toLocaleDateString('es-CO')}`,
-          owner_id: profile.id,
-        });
-      }
+      setResult({ imageUrl: data.imageUrl, revisedPrompt: data.revisedPrompt, prompt: data.prompt });
+      setSaved(false);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error desconocido');
     } finally {
@@ -482,10 +488,26 @@ export default function DisenarPage() {
               </div>
             </div>
 
+            {/* Save button */}
+            {!saved ? (
+              <button
+                onClick={saveDesign}
+                disabled={savingDesign}
+                className="w-full px-6 py-3 rounded-xl bg-[#00d4ff] text-black text-sm font-bold hover:bg-[#00d4ff]/80 transition-colors disabled:opacity-50"
+              >
+                {savingDesign ? 'Guardando...' : '💾 Guardar en mis diseños'}
+              </button>
+            ) : (
+              <div className="w-full px-6 py-3 rounded-xl bg-[#00d4ff]/10 border border-[#00d4ff]/30 text-[#00d4ff] text-sm font-bold text-center">
+                ✓ Guardado en tus diseños
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => {
                   setResult(null);
+                  setSaved(false);
                   setStep(0);
                   setOptions({
                     estilo: '',
@@ -511,7 +533,7 @@ export default function DisenarPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 download
-                className="flex-1 px-6 py-3 rounded-xl bg-[#00d4ff] text-black text-sm font-bold text-center hover:bg-[#00d4ff]/80 transition-colors"
+                className="flex-1 px-6 py-3 rounded-xl border border-white/10 text-white text-sm font-medium text-center hover:border-white/20 transition-colors"
               >
                 ⬇ Descargar
               </a>
