@@ -6,6 +6,7 @@ import VrtxLogo from "@/components/VrtxLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase-browser";
 import { themes, modes, ThemeName, ModeName } from "@/lib/themes";
+import { preferenceCategories } from "@/lib/preferences";
 
 type Tab = "radar" | "perfil" | "disenos" | "analytics" | "sport" | "tienda" | "config";
 
@@ -33,6 +34,7 @@ function DashboardContent() {
     emergency_relation: "",
     main_sport: "",
     sport_level: "",
+    interests: [] as string[],
   });
 
   const [currentTheme, setCurrentTheme] = useState<ThemeName>("cyber");
@@ -62,6 +64,7 @@ function DashboardContent() {
         emergency_relation: profile.emergency_relation || "",
         main_sport: profile.main_sport || "",
         sport_level: profile.sport_level || "",
+        interests: profile.interests || [],
       });
       setCurrentTheme((profile.theme as ThemeName) || "cyber");
       setCurrentMode((profile.active_mode as ModeName) || "todo");
@@ -126,9 +129,10 @@ function DashboardContent() {
     }
   }, [profile]);
 
-  const [radarPlaces, setRadarPlaces] = useState<Array<{ name: string; type: string; icon: string; distance: number; lat: number; lng: number; tags: Record<string, string> }>>([]);
+  const [radarPlaces, setRadarPlaces] = useState<Array<{ name: string; type: string; icon: string; distance: number; lat: number; lng: number; tags: Record<string, string>; cuisine?: string; score?: number }>>([]);
   const [radarLoading, setRadarLoading] = useState(false);
   const [radarError, setRadarError] = useState("");
+  const [radarPersonalized, setRadarPersonalized] = useState(false);
   const [locationDenied, setLocationDenied] = useState(false);
   const [radarLoaded, setRadarLoaded] = useState(false);
 
@@ -144,10 +148,11 @@ function DashboardContent() {
     setRadarLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        fetch(`/api/radar?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}&mode=${currentMode}`)
+        fetch(`/api/radar?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}&mode=${currentMode}&userId=${profile?.id || ''}`)
           .then((r) => r.json())
           .then((data) => {
             setRadarPlaces(data.places || []);
+            setRadarPersonalized(data.personalized || false);
             setRadarLoading(false);
             setRadarLoaded(true);
           })
@@ -315,32 +320,54 @@ function DashboardContent() {
             )}
 
             {radarPlaces.length > 0 && (
-              <div className="space-y-2">
-                {radarPlaces.map((place, i) => (
-                  <a
-                    key={i}
-                    href={`https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 bg-card border border-white/5 rounded-card px-4 py-3 hover:border-accent/30 transition-colors"
-                  >
-                    <span className="text-2xl">{place.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{place.name}</p>
-                      <p className="text-xs text-muted">
-                        {place.type}
-                        {place.tags.address && ` · ${place.tags.address}`}
-                      </p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-accent font-mono text-sm">
-                        {place.distance < 1000 ? `${place.distance}m` : `${(place.distance / 1000).toFixed(1)}km`}
-                      </p>
-                      <p className="text-[10px] text-muted">Maps →</p>
-                    </div>
-                  </a>
-                ))}
-              </div>
+              <>
+                {radarPersonalized ? (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-accent/10 border border-accent/20 rounded-pill">
+                    <span className="text-xs">🎯</span>
+                    <span className="text-xs text-accent font-medium">Personalizado según tus gustos</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-white/5 rounded-pill">
+                    <span className="text-xs">💡</span>
+                    <span className="text-xs text-muted">
+                      Configura tus gustos en <button onClick={() => setActiveTab("config")} className="text-accent underline">Config → Mis Gustos</button> para resultados personalizados
+                    </span>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {radarPlaces.map((place, i) => (
+                    <a
+                      key={i}
+                      href={`https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center gap-3 bg-card border rounded-card px-4 py-3 hover:border-accent/30 transition-colors ${
+                        place.score && place.score > 0 ? "border-accent/20" : "border-white/5"
+                      }`}
+                    >
+                      <span className="text-2xl">{place.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold truncate">{place.name}</p>
+                          {place.score && place.score > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-accent/20 text-accent rounded-pill font-mono">MATCH</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted">
+                          {place.cuisine || place.type}
+                          {place.tags.address && ` · ${place.tags.address}`}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-accent font-mono text-sm">
+                          {place.distance < 1000 ? `${place.distance}m` : `${(place.distance / 1000).toFixed(1)}km`}
+                        </p>
+                        <p className="text-[10px] text-muted">Maps →</p>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </>
             )}
           </>
         )}
@@ -665,6 +692,54 @@ function DashboardContent() {
         {activeTab === "config" && (
           <>
             <h2 className="font-display text-2xl text-accent">Configuración</h2>
+
+            {/* Mis Gustos */}
+            <div className="bg-card border border-white/5 rounded-card p-5">
+              <h3 className="font-display text-lg text-accent mb-1">🎯 Mis Gustos</h3>
+              <p className="text-xs text-muted mb-4">Define tus preferencias para que el Radar te recomiende lugares personalizados.</p>
+              
+              {preferenceCategories.map((cat) => (
+                <div key={cat.id} className="mb-4">
+                  <p className="text-xs text-muted font-mono uppercase mb-2">
+                    {cat.icon} {cat.label}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {cat.options.map((opt) => {
+                      const selected = (form.interests || []).includes(opt.id);
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => {
+                            const current = form.interests || [];
+                            const updated = selected
+                              ? current.filter((i: string) => i !== opt.id)
+                              : [...current, opt.id];
+                            setForm({ ...form, interests: updated });
+                          }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs transition-all ${
+                            selected
+                              ? "bg-accent text-vrtx-black font-bold"
+                              : "bg-white/5 text-muted hover:bg-white/10"
+                          }`}
+                        >
+                          <span>{opt.icon}</span>
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              <button
+                onClick={() => saveProfile({ interests: form.interests })}
+                disabled={saving}
+                className="w-full py-3 bg-accent text-vrtx-black font-bold rounded-pill hover:opacity-90 transition-opacity disabled:opacity-50 mt-2"
+              >
+                {saving ? "Guardando..." : "Guardar gustos"}
+              </button>
+              {saveMsg && <p className="text-center text-sm text-accent mt-2">{saveMsg}</p>}
+            </div>
 
             {/* Temas */}
             <div className="bg-card border border-white/5 rounded-card p-5">

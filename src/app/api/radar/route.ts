@@ -1,59 +1,52 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { getOsmTagsForPreferences } from '@/lib/preferences';
 
-// Map VRTX modes to OpenStreetMap categories
-const modeCategories: Record<string, string[]> = {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// Fallback categories by mode (when user has no preferences set)
+const modeFallback: Record<string, string[]> = {
   deporte: [
-    '"leisure"="fitness_centre"',
-    '"leisure"="sports_centre"',
-    '"leisure"="park"',
-    '"sport"',
-    '"leisure"="swimming_pool"',
+    'node["leisure"="fitness_centre"]',
+    'node["leisure"="sports_centre"]',
+    'node["leisure"="park"]',
+    'node["sport"]',
   ],
   trabajo: [
-    '"amenity"="cafe"',
-    '"office"="coworking"',
-    '"amenity"="library"',
-    '"office"',
+    'node["amenity"="cafe"]',
+    'node["office"="coworking"]',
+    'node["amenity"="library"]',
   ],
   parche: [
-    '"amenity"="restaurant"',
-    '"amenity"="bar"',
-    '"amenity"="pub"',
-    '"amenity"="nightclub"',
-    '"amenity"="cinema"',
+    'node["amenity"="restaurant"]',
+    'node["amenity"="bar"]',
+    'node["amenity"="nightclub"]',
   ],
   negocio: [
-    '"tourism"="hotel"',
-    '"amenity"="conference_centre"',
-    '"office"="coworking"',
-    '"amenity"="restaurant"',
+    'node["tourism"="hotel"]',
+    'node["office"="coworking"]',
+    'node["amenity"="restaurant"]',
   ],
   todo: [
-    '"amenity"="cafe"',
-    '"amenity"="restaurant"',
-    '"leisure"="park"',
-    '"amenity"="bar"',
-    '"leisure"="fitness_centre"',
+    'node["amenity"="cafe"]',
+    'node["amenity"="restaurant"]',
+    'node["leisure"="park"]',
+    'node["amenity"="bar"]',
+    'node["leisure"="fitness_centre"]',
   ],
 };
 
-const modeIcons: Record<string, Record<string, string>> = {
-  deporte: { fitness_centre: "🏋️", sports_centre: "🏟️", park: "🌳", swimming_pool: "🏊", default: "⚽" },
-  trabajo: { cafe: "☕", coworking: "💻", library: "📚", default: "🏢" },
-  parche: { restaurant: "🍽️", bar: "🍺", pub: "🍻", nightclub: "🪩", cinema: "🎬", default: "🎉" },
-  negocio: { hotel: "🏨", conference_centre: "🎤", coworking: "💻", restaurant: "🍽️", default: "🤝" },
-  todo: { cafe: "☕", restaurant: "🍽️", park: "🌳", bar: "🍺", fitness_centre: "🏋️", default: "📍" },
+const typeIcons: Record<string, string> = {
+  fitness_centre: "🏋️", sports_centre: "🏟️", park: "🌳", swimming_pool: "🏊",
+  cafe: "☕", coworking: "💻", library: "📚", restaurant: "🍽️", bar: "🍺",
+  pub: "🍻", nightclub: "🪩", cinema: "🎬", hotel: "🏨", gallery: "🎨",
+  museum: "🎨", spa: "🧖", garden: "🌿", bakery: "🧁", dance: "💃",
+  bicycle_rental: "🚴", nature_reserve: "🌿", amusement_arcade: "🎮",
+  music_venue: "🎵",
 };
-
-interface Place {
-  name: string;
-  type: string;
-  icon: string;
-  lat: number;
-  lng: number;
-  distance: number;
-  tags: Record<string, string>;
-}
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -70,23 +63,54 @@ export async function GET(req: Request) {
   const lat = parseFloat(searchParams.get('lat') || '0');
   const lng = parseFloat(searchParams.get('lng') || '0');
   const mode = searchParams.get('mode') || 'todo';
-  const radius = parseInt(searchParams.get('radius') || '1500'); // meters
+  const userId = searchParams.get('userId') || '';
+  const radius = parseInt(searchParams.get('radius') || '2000');
 
   if (!lat || !lng) {
     return NextResponse.json({ error: 'lat y lng requeridos' }, { status: 400 });
   }
 
-  const categories = modeCategories[mode] || modeCategories.todo;
-  const icons = modeIcons[mode] || modeIcons.todo;
+  // Get user preferences
+  let userInterests: string[] = [];
+  if (userId) {
+    const { data } = await supabase
+      .from('users')
+      .select('interests')
+      .eq('id', userId)
+      .maybeSingle();
+    if (data?.interests) {
+      userInterests = data.interests;
+    }
+  }
 
-  // Build Overpass query
-  const filters = categories.map((cat) => `node[${cat}](around:${radius},${lat},${lng});`).join('\n');
+  // Build Overpass queries
+  let osmFilters: string[];
+
+  if (userInterests.length > 0) {
+    // Personalized: use user's preferences
+    const prefTags = getOsmTagsForPreferences(userInterests);
+    osmFilters = prefTags.map((tag) => `node[${tag}](around:${radius},${lat},${lng});`);
+    
+    // Also add some mode-specific if few preferences
+    if (osmFilters.length < 3) {
+      const fallback = modeFallback[mode] || modeFallback.todo;
+      osmFilters.push(...fallback.map((f) => `${f}(around:${radius},${lat},${lng});`));
+    }
+  } else {
+    // No preferences: use mode-based fallback
+    const fallback = modeFallback[mode] || modeFallback.todo;
+    osmFilters = fallback.map((f) => `${f}(around:${radius},${lat},${lng});`);
+  }
+
+  // Limit to avoid too large queries
+  osmFilters = osmFilters.slice(0, 12);
+
   const query = `
-    [out:json][timeout:10];
+    [out:json][timeout:15];
     (
-      ${filters}
+      ${osmFilters.join('\n')}
     );
-    out body 15;
+    out body 30;
   `;
 
   try {
@@ -103,32 +127,75 @@ export async function GET(req: Request) {
     const data = await res.json();
     const elements = data.elements || [];
 
-    const places: Place[] = elements
+    // Score places based on user preferences
+    const places = elements
       .filter((el: any) => el.tags?.name)
       .map((el: any) => {
         const tags = el.tags || {};
-        const type =
-          tags.amenity || tags.leisure || tags.tourism || tags.office || tags.sport || 'place';
+        const type = tags.amenity || tags.leisure || tags.tourism || tags.office || tags.sport || tags.shop || 'place';
+        const cuisine = tags.cuisine || '';
+        
+        // Calculate relevance score
+        let score = 0;
+        if (userInterests.length > 0) {
+          // Boost places that match user interests
+          if (userInterests.includes('coffee') && type === 'cafe') score += 10;
+          if (userInterests.includes('sushi') && cuisine.match(/sushi|japanese/i)) score += 15;
+          if (userInterests.includes('pizza') && cuisine.match(/pizza|italian/i)) score += 15;
+          if (userInterests.includes('burger') && cuisine.match(/burger|american/i)) score += 15;
+          if (userInterests.includes('mexican') && cuisine.match(/mexican/i)) score += 15;
+          if (userInterests.includes('chinese') && cuisine.match(/chinese|asian|thai/i)) score += 15;
+          if (userInterests.includes('colombian') && cuisine.match(/colombian|latin|regional/i)) score += 15;
+          if (userInterests.includes('vegan') && (cuisine.match(/vegan|vegetarian/i) || tags['diet:vegan'] === 'yes')) score += 15;
+          if (userInterests.includes('seafood') && cuisine.match(/seafood|fish/i)) score += 15;
+          if (userInterests.includes('cocktails') && type === 'bar') score += 10;
+          if (userInterests.includes('craft-beer') && (tags.craft === 'brewery' || tags.microbrewery === 'yes')) score += 15;
+          if (userInterests.includes('gym') && type === 'fitness_centre') score += 10;
+          if (userInterests.includes('yoga') && tags.sport === 'yoga') score += 15;
+          if (userInterests.includes('running') && type === 'park') score += 10;
+          if (userInterests.includes('art') && (type === 'gallery' || type === 'museum')) score += 10;
+          if (userInterests.includes('nature') && (type === 'park' || type === 'garden')) score += 10;
+          if (userInterests.includes('spa') && type === 'spa') score += 10;
+          if (userInterests.includes('coworking') && tags.office === 'coworking') score += 10;
+          if (userInterests.includes('live-music') && (type === 'nightclub' || type === 'music_venue')) score += 10;
+          if (userInterests.includes('dance') && tags.sport === 'dance') score += 15;
+        }
+
+        const distance = Math.round(haversine(lat, lng, el.lat, el.lon));
+
         return {
           name: tags.name,
           type,
-          icon: icons[type] || icons.default || '📍',
+          cuisine: cuisine || undefined,
+          icon: typeIcons[type] || '📍',
           lat: el.lat,
           lng: el.lon,
-          distance: Math.round(haversine(lat, lng, el.lat, el.lon)),
+          distance,
+          score,
           tags: {
-            ...(tags.cuisine && { cuisine: tags.cuisine }),
+            ...(cuisine && { cuisine }),
             ...(tags.phone && { phone: tags.phone }),
             ...(tags.website && { website: tags.website }),
             ...(tags['opening_hours'] && { hours: tags['opening_hours'] }),
-            ...(tags['addr:street'] && { address: `${tags['addr:street']} ${tags['addr:housenumber'] || ''}`.trim() }),
+            ...(tags['addr:street'] && {
+              address: `${tags['addr:street']} ${tags['addr:housenumber'] || ''}`.trim(),
+            }),
           },
         };
       })
-      .sort((a: Place, b: Place) => a.distance - b.distance)
-      .slice(0, 10);
+      // Sort by: score (desc) then distance (asc)
+      .sort((a: any, b: any) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.distance - b.distance;
+      })
+      .slice(0, 12);
 
-    return NextResponse.json({ places, mode, total: places.length });
+    return NextResponse.json({
+      places,
+      mode,
+      personalized: userInterests.length > 0,
+      total: places.length,
+    });
   } catch (e) {
     console.error('Radar error:', e);
     return NextResponse.json({ error: 'Error obteniendo recomendaciones' }, { status: 500 });
