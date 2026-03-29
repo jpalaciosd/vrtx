@@ -134,46 +134,43 @@ function DashboardContent() {
   const [radarError, setRadarError] = useState("");
   const [radarPersonalized, setRadarPersonalized] = useState(false);
   const [locationDenied, setLocationDenied] = useState(false);
-  const [radarLoaded, setRadarLoaded] = useState(false);
+  const [radarLoadedMode, setRadarLoadedMode] = useState<string | null>(null);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Load radar when tab is active
+  // Get GPS once
   useEffect(() => {
-    if (activeTab !== "radar" || radarLoaded || !profile) return;
-
+    if (userCoords || locationDenied) return;
     if (!navigator.geolocation) {
       setRadarError("Tu navegador no soporta geolocalización");
       return;
     }
-
-    setRadarLoading(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        fetch(`/api/radar?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}&mode=${currentMode}&userId=${profile?.id || ''}`)
-          .then((r) => r.json())
-          .then((data) => {
-            setRadarPlaces(data.places || []);
-            setRadarPersonalized(data.personalized || false);
-            setRadarLoading(false);
-            setRadarLoaded(true);
-          })
-          .catch(() => {
-            setRadarError("Error cargando recomendaciones");
-            setRadarLoading(false);
-          });
-      },
-      () => {
-        setLocationDenied(true);
-        setRadarLoading(false);
-      },
+      (pos) => setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => setLocationDenied(true),
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }, [activeTab, radarLoaded, profile, currentMode]);
+  }, [userCoords, locationDenied]);
 
-  // Reload radar when mode changes
+  // Load radar when tab active + coords available + mode changed
   useEffect(() => {
-    setRadarLoaded(false);
-    setRadarPlaces([]);
-  }, [currentMode]);
+    if (activeTab !== "radar" || !userCoords || !profile) return;
+    if (radarLoadedMode === currentMode) return; // already loaded for this mode
+
+    setRadarLoading(true);
+    setRadarError("");
+    fetch(`/api/radar?lat=${userCoords.lat}&lng=${userCoords.lng}&mode=${currentMode}&userId=${profile.id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setRadarPlaces(data.places || []);
+        setRadarPersonalized(data.personalized || false);
+        setRadarLoading(false);
+        setRadarLoadedMode(currentMode);
+      })
+      .catch(() => {
+        setRadarError("Error cargando recomendaciones");
+        setRadarLoading(false);
+      });
+  }, [activeTab, userCoords, profile?.id, currentMode, radarLoadedMode]);
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "radar", label: "Radar", icon: "📡" },
