@@ -103,28 +103,44 @@ export async function GET(req: Request) {
   }
 
   // Limit to avoid too large queries
-  osmFilters = osmFilters.slice(0, 12);
+  osmFilters = osmFilters.slice(0, 8);
 
   const query = `
-    [out:json][timeout:15];
+    [out:json][timeout:10];
     (
       ${osmFilters.join('\n')}
     );
-    out body 30;
+    out body 20;
   `;
 
   try {
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: `data=${encodeURIComponent(query)}`,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    });
+    // Try primary, then fallback Overpass server
+    const servers = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+    ];
 
-    if (!res.ok) {
-      return NextResponse.json({ error: 'Error consultando lugares' }, { status: 502 });
+    let data: any = null;
+    for (const server of servers) {
+      try {
+        const res = await fetch(server, {
+          method: 'POST',
+          body: `data=${encodeURIComponent(query)}`,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          signal: AbortSignal.timeout(12000),
+        });
+        if (res.ok) {
+          data = await res.json();
+          break;
+        }
+      } catch {
+        continue;
+      }
     }
 
-    const data = await res.json();
+    if (!data) {
+      return NextResponse.json({ error: 'Servidores de mapas ocupados, intenta en unos segundos' }, { status: 502 });
+    }
     const elements = data.elements || [];
 
     // Score places based on user preferences
@@ -188,14 +204,16 @@ export async function GET(req: Request) {
         if (b.score !== a.score) return b.score - a.score;
         return a.distance - b.distance;
       })
-      .slice(0, 12);
+      // Deduplicate by name
+      .filter((place: any, index: number, arr: any[]) =>
+        arr.findIndex((p: any) => p.name.toLowerCase() === place.name.toLowerCase()) === index
+      )
+      .slice(0, 10);
 
-    return NextResponse.json({
-      places,
-      mode,
-      personalized: userInterests.length > 0,
-      total: places.length,
-    });
+    return NextResponse.json(
+      { places, mode, personalized: userInterests.length > 0, total: places.length },
+      { headers: { 'Cache-Control': 'private, max-age=120' } } // cache 2 min
+    );
   } catch (e) {
     console.error('Radar error:', e);
     return NextResponse.json({ error: 'Error obteniendo recomendaciones' }, { status: 500 });
