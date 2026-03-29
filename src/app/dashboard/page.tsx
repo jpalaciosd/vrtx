@@ -7,12 +7,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase-browser";
 import { themes, modes, ThemeName, ModeName } from "@/lib/themes";
 
-type Tab = "perfil" | "disenos" | "analytics" | "sport" | "tienda" | "config";
+type Tab = "radar" | "perfil" | "disenos" | "analytics" | "sport" | "tienda" | "config";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("perfil");
+  const [activeTab, setActiveTab] = useState<Tab>("radar");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
@@ -124,7 +124,52 @@ export default function DashboardPage() {
     }
   }, [profile]);
 
+  const [radarPlaces, setRadarPlaces] = useState<Array<{ name: string; type: string; icon: string; distance: number; lat: number; lng: number; tags: Record<string, string> }>>([]);
+  const [radarLoading, setRadarLoading] = useState(false);
+  const [radarError, setRadarError] = useState("");
+  const [locationDenied, setLocationDenied] = useState(false);
+  const [radarLoaded, setRadarLoaded] = useState(false);
+
+  // Load radar when tab is active
+  useEffect(() => {
+    if (activeTab !== "radar" || radarLoaded || !profile) return;
+
+    if (!navigator.geolocation) {
+      setRadarError("Tu navegador no soporta geolocalización");
+      return;
+    }
+
+    setRadarLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        fetch(`/api/radar?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}&mode=${currentMode}`)
+          .then((r) => r.json())
+          .then((data) => {
+            setRadarPlaces(data.places || []);
+            setRadarLoading(false);
+            setRadarLoaded(true);
+          })
+          .catch(() => {
+            setRadarError("Error cargando recomendaciones");
+            setRadarLoading(false);
+          });
+      },
+      () => {
+        setLocationDenied(true);
+        setRadarLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [activeTab, radarLoaded, profile, currentMode]);
+
+  // Reload radar when mode changes
+  useEffect(() => {
+    setRadarLoaded(false);
+    setRadarPlaces([]);
+  }, [currentMode]);
+
   const tabs: { id: Tab; label: string; icon: string }[] = [
+    { id: "radar", label: "Radar", icon: "📡" },
     { id: "perfil", label: "Perfil", icon: "👤" },
     { id: "disenos", label: "Diseños", icon: "🎨" },
     { id: "analytics", label: "Analytics", icon: "📊" },
@@ -189,6 +234,114 @@ export default function DashboardPage() {
 
       {/* Content */}
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+
+        {/* ===== RADAR TAB ===== */}
+        {activeTab === "radar" && (
+          <>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-display text-2xl text-accent flex items-center gap-2">
+                  📡 VRTX Radar
+                </h2>
+                <p className="text-xs text-muted mt-1">
+                  Lugares cerca de ti · Modo:{" "}
+                  <span className="text-accent font-semibold">
+                    {(modes[currentMode] as any)?.icon} {(modes[currentMode] as any)?.label}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* Mode quick switch */}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              {(Object.keys(modes) as ModeName[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setCurrentMode(m);
+                    saveProfile({ active_mode: m });
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-pill text-xs font-medium whitespace-nowrap transition-all ${
+                    currentMode === m
+                      ? "bg-accent text-vrtx-black font-bold"
+                      : "bg-white/5 text-muted hover:bg-white/10"
+                  }`}
+                >
+                  <span>{modes[m].icon}</span>
+                  {modes[m].label}
+                </button>
+              ))}
+            </div>
+
+            {/* Radar results */}
+            {radarLoading && (
+              <div className="bg-card border border-white/5 rounded-card p-8 text-center">
+                <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm text-muted">Buscando lugares cerca...</p>
+                <p className="text-xs text-muted/50 mt-1">Esto puede tomar unos segundos</p>
+              </div>
+            )}
+
+            {locationDenied && (
+              <div className="bg-card border border-white/5 rounded-card p-8 text-center">
+                <p className="text-3xl mb-3">📍</p>
+                <p className="text-[#8899bb]">Permite el acceso a tu ubicación para ver recomendaciones.</p>
+                <button
+                  onClick={() => {
+                    setLocationDenied(false);
+                    setRadarLoaded(false);
+                  }}
+                  className="mt-4 px-5 py-2 bg-accent text-vrtx-black font-bold text-sm rounded-pill"
+                >
+                  Reintentar
+                </button>
+              </div>
+            )}
+
+            {radarError && (
+              <div className="bg-card border border-white/5 rounded-card p-6 text-center">
+                <p className="text-red-400 text-sm">{radarError}</p>
+              </div>
+            )}
+
+            {!radarLoading && !locationDenied && !radarError && radarPlaces.length === 0 && radarLoaded && (
+              <div className="bg-card border border-white/5 rounded-card p-8 text-center">
+                <p className="text-3xl mb-3">🔍</p>
+                <p className="text-[#8899bb]">No encontramos lugares cerca para el modo <span className="text-accent">{(modes[currentMode] as any)?.label}</span>.</p>
+                <p className="text-xs text-muted mt-2">Prueba cambiando de modo.</p>
+              </div>
+            )}
+
+            {radarPlaces.length > 0 && (
+              <div className="space-y-2">
+                {radarPlaces.map((place, i) => (
+                  <a
+                    key={i}
+                    href={`https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 bg-card border border-white/5 rounded-card px-4 py-3 hover:border-accent/30 transition-colors"
+                  >
+                    <span className="text-2xl">{place.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{place.name}</p>
+                      <p className="text-xs text-muted">
+                        {place.type}
+                        {place.tags.address && ` · ${place.tags.address}`}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-accent font-mono text-sm">
+                        {place.distance < 1000 ? `${place.distance}m` : `${(place.distance / 1000).toFixed(1)}km`}
+                      </p>
+                      <p className="text-[10px] text-muted">Maps →</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
         {/* ===== PERFIL TAB ===== */}
         {activeTab === "perfil" && (
