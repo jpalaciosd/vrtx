@@ -83,23 +83,28 @@ export async function GET(req: Request) {
     }
   }
 
-  // Build Overpass queries
-  let osmFilters: string[];
+  // MODE defines what to search — always
+  const modeFilters = modeFallback[mode] || modeFallback.todo;
+  let osmFilters = modeFilters.map((f) => `${f}(around:${radius},${lat},${lng});`);
 
+  // Add preference-specific queries ONLY if they match the mode context
   if (userInterests.length > 0) {
-    // Personalized: use user's preferences
-    const prefTags = getOsmTagsForPreferences(userInterests);
-    osmFilters = prefTags.map((tag) => `node[${tag}](around:${radius},${lat},${lng});`);
+    const modePreferenceMap: Record<string, string[]> = {
+      deporte: ['gym', 'yoga', 'swimming', 'running', 'climbing', 'cycling', 'martial-arts', 'dance'],
+      trabajo: ['coffee', 'coworking', 'library'],
+      parche: ['sushi', 'pizza', 'burger', 'mexican', 'chinese', 'colombian', 'vegan', 'seafood', 'bakery', 'cocktails', 'craft-beer', 'wine', 'live-music', 'rooftop'],
+      negocio: ['coffee', 'coworking'],
+      todo: [...new Set(['coffee', 'sushi', 'pizza', 'burger', 'gym', 'yoga', 'cocktails', 'art', 'nature', 'running', 'mexican', 'chinese', 'colombian', 'vegan', 'seafood', 'bakery', 'craft-beer', 'wine', 'live-music', 'rooftop', 'spa', 'gaming', 'climbing', 'cycling', 'martial-arts', 'dance', 'swimming', 'coworking', 'library', 'juice'])],
+    };
     
-    // Also add some mode-specific if few preferences
-    if (osmFilters.length < 3) {
-      const fallback = modeFallback[mode] || modeFallback.todo;
-      osmFilters.push(...fallback.map((f) => `${f}(around:${radius},${lat},${lng});`));
+    const relevantInterests = userInterests.filter(i => 
+      (modePreferenceMap[mode] || modePreferenceMap.todo).includes(i)
+    );
+    
+    if (relevantInterests.length > 0) {
+      const prefTags = getOsmTagsForPreferences(relevantInterests);
+      osmFilters.push(...prefTags.map((tag) => `node[${tag}](around:${radius},${lat},${lng});`));
     }
-  } else {
-    // No preferences: use mode-based fallback
-    const fallback = modeFallback[mode] || modeFallback.todo;
-    osmFilters = fallback.map((f) => `${f}(around:${radius},${lat},${lng});`);
   }
 
   // Limit to avoid too large queries
@@ -204,10 +209,11 @@ export async function GET(req: Request) {
         if (b.score !== a.score) return b.score - a.score;
         return a.distance - b.distance;
       })
-      // Deduplicate by name
-      .filter((place: any, index: number, arr: any[]) =>
-        arr.findIndex((p: any) => p.name.toLowerCase() === place.name.toLowerCase()) === index
-      )
+      // Deduplicate by normalized name
+      .filter((place: any, index: number, arr: any[]) => {
+        const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return arr.findIndex((p: any) => normalize(p.name) === normalize(place.name)) === index;
+      })
       .slice(0, 10);
 
     return NextResponse.json(

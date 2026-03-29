@@ -158,7 +158,7 @@ function DashboardContent() {
 
     setRadarLoading(true);
     setRadarError("");
-    fetch(`/api/radar?lat=${userCoords.lat}&lng=${userCoords.lng}&mode=${currentMode}&userId=${profile.id}`)
+    fetch(`/api/radar?lat=${userCoords.lat}&lng=${userCoords.lng}&mode=${currentMode}&userId=${profile.id}&t=${Date.now()}`)
       .then((r) => r.json())
       .then((data) => {
         setRadarPlaces(data.places || []);
