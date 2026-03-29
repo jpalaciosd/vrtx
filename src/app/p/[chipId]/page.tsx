@@ -525,6 +525,18 @@ export default function ProfilePage() {
           </section>
         )}
 
+        {/* OWNER ACCESS — visible to everyone, smart redirect */}
+        <div className="bg-card border border-accent/20 rounded-card p-5 text-center">
+          <p className="text-2xl mb-2">🔺</p>
+          <p className="text-sm text-muted mb-3">¿Es tu gorra VRTX?</p>
+          <a
+            href={isOwner ? "/dashboard?tab=radar" : "/login?redirect=/dashboard?tab=radar"}
+            className="inline-block px-6 py-3 bg-accent text-vrtx-black font-bold text-sm rounded-pill hover:opacity-90 transition-opacity"
+          >
+            {isOwner ? "📡 Abrir mi Radar" : "🔺 Acceder a mi VRTX"}
+          </a>
+        </div>
+
         {/* FOOTER */}
         <div className="text-center py-8">
           <VrtxLogo size={30} animated={false} />

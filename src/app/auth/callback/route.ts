@@ -14,5 +14,6 @@ export async function GET(req: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  return NextResponse.redirect(`${origin}/dashboard`);
+  // Default redirect to dashboard - client-side will check localStorage for specific redirect
+  return NextResponse.redirect(`${origin}/auth/complete`);
 }

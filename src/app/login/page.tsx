@@ -1,10 +1,28 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase-browser';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
+import { useEffect, Suspense } from 'react';
 import Link from 'next/link';
 
-export default function LoginPage() {
+function LoginContent() {
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect') || '/dashboard';
+  const { user } = useAuth();
+  const router = useRouter();
+
+  // If already logged in, redirect
+  useEffect(() => {
+    if (user) {
+      router.push(redirect);
+    }
+  }, [user, redirect, router]);
+
   const handleGoogleLogin = async () => {
+    // Store redirect in localStorage for after OAuth
+    localStorage.setItem('vrtx_redirect', redirect);
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -75,5 +93,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#060810] flex items-center justify-center">
+        <div className="w-12 h-12 border-2 border-[#00d4ff] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

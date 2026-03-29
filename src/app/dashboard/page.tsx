@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import VrtxLogo from "@/components/VrtxLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase-browser";
@@ -9,10 +9,12 @@ import { themes, modes, ThemeName, ModeName } from "@/lib/themes";
 
 type Tab = "radar" | "perfil" | "disenos" | "analytics" | "sport" | "tienda" | "config";
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("radar");
+  const initialTab = (searchParams.get('tab') as Tab) || "radar";
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
@@ -787,5 +789,17 @@ export default function DashboardPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#060810] flex items-center justify-center">
+        <div className="w-12 h-12 border-2 border-[#00d4ff] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }
