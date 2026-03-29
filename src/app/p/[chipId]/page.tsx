@@ -3,8 +3,119 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import VrtxLogo from "@/components/VrtxLogo";
-import { tiers, themes } from "@/lib/themes";
+import { useAuth } from "@/contexts/AuthContext";
+import { tiers, themes, modes } from "@/lib/themes";
 import type { DbUser, DbChip, DbScan } from "@/lib/supabase";
+
+// ==================== RADAR COMPONENT ====================
+interface RadarPlace {
+  name: string;
+  type: string;
+  icon: string;
+  distance: number;
+  tags: Record<string, string>;
+  lat: number;
+  lng: number;
+}
+
+function VrtxRadar({ mode }: { mode: string }) {
+  const [places, setPlaces] = useState<RadarPlace[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [locationDenied, setLocationDenied] = useState(false);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setError("Tu navegador no soporta geolocalización");
+      setLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        fetch(`/api/radar?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}&mode=${mode}`)
+          .then((r) => r.json())
+          .then((data) => {
+            setPlaces(data.places || []);
+            setLoading(false);
+          })
+          .catch(() => {
+            setError("Error cargando recomendaciones");
+            setLoading(false);
+          });
+      },
+      () => {
+        setLocationDenied(true);
+        setLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [mode]);
+
+  if (locationDenied) {
+    return (
+      <div className="bg-card border border-white/5 rounded-card p-5 text-center">
+        <p className="text-2xl mb-2">📍</p>
+        <p className="text-[#8899bb] text-sm">Permite el acceso a tu ubicación para ver recomendaciones cerca de ti.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-card border border-white/5 rounded-card p-6 text-center">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-sm text-[#8899bb]">Buscando lugares cerca...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-card border border-white/5 rounded-card p-5 text-center">
+        <p className="text-[#8899bb] text-sm">{error}</p>
+      </div>
+    );
+  }
+
+  if (places.length === 0) {
+    return (
+      <div className="bg-card border border-white/5 rounded-card p-5 text-center">
+        <p className="text-2xl mb-2">🔍</p>
+        <p className="text-[#8899bb] text-sm">No encontramos lugares cerca para este modo. Intenta con otro.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {places.map((place, i) => (
+        <a
+          key={i}
+          href={`https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 bg-vrtx-black/50 border border-white/5 rounded-card px-4 py-3 hover:border-accent/30 transition-colors"
+        >
+          <span className="text-2xl">{place.icon}</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">{place.name}</p>
+            <p className="text-xs text-muted">
+              {place.type}
+              {place.tags.address && ` · ${place.tags.address}`}
+            </p>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <p className="text-accent font-mono text-sm">
+              {place.distance < 1000 ? `${place.distance}m` : `${(place.distance / 1000).toFixed(1)}km`}
+            </p>
+            <p className="text-[10px] text-muted">Maps →</p>
+          </div>
+        </a>
+      ))}
+    </div>
+  );
+}
 
 // ==================== NFC ACTIVATION OVERLAY ====================
 function NfcActivation({ onComplete }: { onComplete: () => void }) {
@@ -74,6 +185,7 @@ export default function ProfilePage() {
   const params = useParams();
   const chipId = params.chipId as string;
 
+  const { profile } = useAuth();
   const [showActivation, setShowActivation] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -81,6 +193,7 @@ export default function ProfilePage() {
   const [chip, setChip] = useState<DbChip | null>(null);
   const [scans, setScans] = useState<DbScan[]>([]);
   const [scanRegistered, setScanRegistered] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     if (!chipId) return;
@@ -94,6 +207,10 @@ export default function ProfilePage() {
           setOwner(data.owner);
           setChip(data.chip);
           setScans(data.scans || []);
+          // Check if logged-in user is the chip owner
+          if (profile && data.owner && profile.id === data.owner.id) {
+            setIsOwner(true);
+          }
         }
         setLoading(false);
       })
@@ -370,6 +487,24 @@ export default function ProfilePage() {
               ))}
             </div>
           </Section>
+        )}
+
+        {/* VRTX RADAR — only for chip owner */}
+        {isOwner && owner && (
+          <section className="bg-card border border-accent/20 rounded-card p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xl">📡</span>
+              <h2 className="font-display text-xl text-accent tracking-wide">VRTX RADAR</h2>
+            </div>
+            <p className="text-xs text-muted mb-4">
+              Recomendaciones cerca de ti · Modo:{" "}
+              <span className="text-accent font-semibold">
+                {modes[owner.active_mode as keyof typeof modes]?.icon}{" "}
+                {modes[owner.active_mode as keyof typeof modes]?.label || owner.active_mode}
+              </span>
+            </p>
+            <VrtxRadar mode={owner.active_mode || "todo"} />
+          </section>
         )}
 
         {/* FOOTER */}
