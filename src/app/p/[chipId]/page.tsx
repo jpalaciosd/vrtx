@@ -220,9 +220,16 @@ export default function ProfilePage() {
       });
   }, [chipId]);
 
-  // Register scan
+  // Detect owner when profile loads later
   useEffect(() => {
-    if (!chip || scanRegistered) return;
+    if (profile && owner && profile.id === owner.id) {
+      setIsOwner(true);
+    }
+  }, [profile, owner]);
+
+  // Register scan (skip if owner)
+  useEffect(() => {
+    if (!chip || scanRegistered || isOwner) return;
     setScanRegistered(true);
 
     // Get approximate location via IP
@@ -298,6 +305,17 @@ export default function ProfilePage() {
 
   return (
     <div data-theme={themeKey} className="min-h-screen bg-vrtx-black pb-8">
+      {/* === OWNER BANNER === */}
+      {isOwner && (
+        <div className="bg-accent/10 border-b border-accent/20 px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">👑</span>
+            <span className="text-xs text-accent font-mono">MODO DUEÑO — Solo tú ves esto</span>
+          </div>
+          <a href="/dashboard" className="text-xs text-accent hover:underline">Dashboard →</a>
+        </div>
+      )}
+
       {/* === HEADER === */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
