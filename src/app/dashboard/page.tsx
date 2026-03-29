@@ -308,7 +308,7 @@ function DashboardContent() {
               </div>
             )}
 
-            {!radarLoading && !locationDenied && !radarError && radarPlaces.length === 0 && radarLoaded && (
+            {!radarLoading && !locationDenied && !radarError && radarPlaces.length === 0 && radarLoadedMode && (
               <div className="bg-card border border-white/5 rounded-card p-8 text-center">
                 <p className="text-3xl mb-3">🔍</p>
                 <p className="text-[#8899bb]">No encontramos lugares cerca para el modo <span className="text-accent">{(modes[currentMode] as any)?.label}</span>.</p>
