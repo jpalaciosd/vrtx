@@ -170,7 +170,7 @@ function DashboardContent() {
         setRadarError("Error cargando recomendaciones");
         setRadarLoading(false);
       });
-  }, [activeTab, userCoords, profile?.id, currentMode, radarLoadedMode]);
+  }, [activeTab, userCoords, profile, currentMode, radarLoadedMode]);
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "radar", label: "Radar", icon: "📡" },

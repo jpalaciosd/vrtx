@@ -185,7 +185,7 @@ export default function ProfilePage() {
   const params = useParams();
   const chipId = params.chipId as string;
 
-  const { profile } = useAuth();
+  const { profile: authProfile } = useAuth();
   const [showActivation, setShowActivation] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -208,7 +208,7 @@ export default function ProfilePage() {
           setChip(data.chip);
           setScans(data.scans || []);
           // Check if logged-in user is the chip owner
-          if (profile && data.owner && profile.id === data.owner.id) {
+          if (authProfile && data.owner && authProfile.id === data.owner.id) {
             setIsOwner(true);
           }
         }
@@ -222,10 +222,10 @@ export default function ProfilePage() {
 
   // Detect owner when profile loads later
   useEffect(() => {
-    if (profile && owner && profile.id === owner.id) {
+    if (authProfile && owner && authProfile.id === owner.id) {
       setIsOwner(true);
     }
-  }, [profile, owner]);
+  }, [authProfile, owner]);
 
   // Register scan (skip if owner)
   useEffect(() => {
