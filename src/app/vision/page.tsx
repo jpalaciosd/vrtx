@@ -44,47 +44,71 @@ export default function VisionPage() {
   const [cameraReady, setCameraReady] = useState(false);
   const [scanPulse, setScanPulse] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
+  const [debugMsg, setDebugMsg] = useState("");
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Start camera (iOS compatible)
   const startCamera = useCallback(async () => {
     try {
       setError("");
+      setDebugMsg("Solicitando cámara...");
       
       // Check if getUserMedia is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setError("Tu navegador no soporta acceso a la cámara. Usa Safari en iPhone.");
+        setError("Tu navegador no soporta acceso a la cámara. Abre esta página en Safari.");
         return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-        audio: false,
-      });
+      // iOS Safari needs simple constraints first
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+      } catch {
+        // Fallback: try without facingMode
+        setDebugMsg("Intentando sin facingMode...");
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+      
+      setDebugMsg("Cámara obtenida, conectando video...");
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute("playsinline", "true");
-        videoRef.current.setAttribute("webkit-playsinline", "true");
-        videoRef.current.muted = true;
         
-        // iOS requires waiting for loadedmetadata before play
-        await new Promise<void>((resolve) => {
-          videoRef.current!.onloadedmetadata = () => resolve();
+        // Wait for video to be ready
+        await new Promise<void>((resolve, reject) => {
+          const video = videoRef.current!;
+          video.onloadedmetadata = () => {
+            setDebugMsg("Metadata cargada, reproduciendo...");
+            resolve();
+          };
+          video.onerror = () => reject(new Error("Video element error"));
+          // Timeout after 5s
+          setTimeout(() => resolve(), 5000);
         });
         
-        await videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch {
+          // iOS sometimes needs a second try
+          await new Promise(r => setTimeout(r, 500));
+          await videoRef.current.play();
+        }
+        
+        setDebugMsg("");
         setCameraReady(true);
         setScanning(true);
       }
     } catch (e: unknown) {
       const err = e as Error;
+      setDebugMsg("");
       if (err.name === "NotAllowedError") {
-        setError("Permiso de cámara denegado. Ve a Ajustes > Safari > Cámara y permite el acceso.");
+        setError("Permiso de cámara denegado. Ve a Ajustes > Safari > Cámara y permite el acceso a esta página.");
       } else if (err.name === "NotFoundError") {
         setError("No se encontró cámara en este dispositivo.");
+      } else if (err.name === "NotReadableError") {
+        setError("La cámara está en uso por otra app. Cierra otras apps y vuelve a intentar.");
       } else {
-        setError(`Error al acceder a la cámara: ${err.message || "desconocido"}`);
+        setError(`Error: ${err.name || "desconocido"} — ${err.message || ""}`);
       }
     }
   }, []);
@@ -471,10 +495,18 @@ export default function VisionPage() {
         </div>
       )}
 
+      {/* Debug message */}
+      {debugMsg && (
+        <div className="fixed top-20 inset-x-6 bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 text-center z-50">
+          <p className="text-sm text-cyan-400 font-mono">{debugMsg}</p>
+        </div>
+      )}
+
       {/* Error toast */}
       {error && (
         <div className="fixed top-20 inset-x-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center z-50">
           <p className="text-sm text-red-400">{error}</p>
+          <button onClick={() => setError("")} className="text-xs text-red-500/50 mt-2 underline">Cerrar</button>
         </div>
       )}
     </div>
