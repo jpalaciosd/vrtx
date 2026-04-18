@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef } from "react";
 
 interface VrtxProfile {
   name: string;
@@ -35,174 +35,89 @@ const MODE_LABELS: Record<string, string> = {
   negocio: "📊 Negocio",
 };
 
+const DEMO_PROFILE: VrtxProfile = {
+  name: "Juan Diego",
+  handle: "@jdpd",
+  bio: "Creador de VRTX. Tech & Innovation 🚀",
+  avatar_url: "",
+  theme: "cyber",
+  active_mode: "parche",
+  social_links: { instagram: "jdpalacios", linkedin: "juandiegopalacios" },
+  main_sport: "Running",
+  interests: ["tech", "coffee", "running", "craft-beer", "music", "travel"],
+  privacy: { showBio: true, showSocial: true, showSport: true, showInterests: true },
+};
+
 export default function VisionPage() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [scanning, setScanning] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<VrtxProfile | null>(null);
-  const [error, setError] = useState("");
-  const [cameraReady, setCameraReady] = useState(false);
-  const [scanPulse, setScanPulse] = useState(false);
-  const [demoMode, setDemoMode] = useState(false);
-  const [debugMsg, setDebugMsg] = useState("");
-  const [isInAppBrowser, setIsInAppBrowser] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [scanPhase, setScanPhase] = useState(0); // 0=idle, 1=analyzing, 2=found, 3=not found
 
-  // Detect in-app browsers (Telegram, Instagram, Facebook, etc.)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const ua = navigator.userAgent.toLowerCase();
-      const inApp = /telegram|instagram|fbav|fban|line|twitter|snapchat|whatsapp|wv\)/.test(ua) 
-        || (!/safari/i.test(ua) && /applewebkit/i.test(ua)); // iOS WebView without Safari
-      setIsInAppBrowser(inApp);
-    }
-  }, []);
-  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Start camera (iOS compatible)
-  const startCamera = useCallback(async () => {
-    try {
-      setError("");
-      setDebugMsg("Solicitando cámara...");
-      
-      // Check if getUserMedia is available
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setError("Tu navegador no soporta acceso a la cámara. Abre esta página en Safari.");
-        return;
-      }
-
-      // iOS Safari needs simple constraints first
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
-      } catch {
-        // Fallback: try without facingMode
-        setDebugMsg("Intentando sin facingMode...");
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      }
-      
-      setDebugMsg("Cámara obtenida, conectando video...");
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        
-        // Wait for video to be ready
-        await new Promise<void>((resolve, reject) => {
-          const video = videoRef.current!;
-          video.onloadedmetadata = () => {
-            setDebugMsg("Metadata cargada, reproduciendo...");
-            resolve();
-          };
-          video.onerror = () => reject(new Error("Video element error"));
-          // Timeout after 5s
-          setTimeout(() => resolve(), 5000);
-        });
-        
-        try {
-          await videoRef.current.play();
-        } catch {
-          // iOS sometimes needs a second try
-          await new Promise(r => setTimeout(r, 500));
-          await videoRef.current.play();
-        }
-        
-        setDebugMsg("");
-        setCameraReady(true);
-        setScanning(true);
-      }
-    } catch (e: unknown) {
-      const err = e as Error;
-      setDebugMsg("");
-      if (err.name === "NotAllowedError") {
-        setError("Permiso de cámara denegado. Ve a Ajustes > Safari > Cámara y permite el acceso a esta página.");
-      } else if (err.name === "NotFoundError") {
-        setError("No se encontró cámara en este dispositivo.");
-      } else if (err.name === "NotReadableError") {
-        setError("La cámara está en uso por otra app. Cierra otras apps y vuelve a intentar.");
-      } else {
-        setError(`Error: ${err.name || "desconocido"} — ${err.message || ""}`);
-      }
-    }
-  }, []);
-
-  // Stop camera
-  const stopCamera = useCallback(() => {
-    if (videoRef.current?.srcObject) {
-      (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
-      videoRef.current.srcObject = null;
-    }
-    setCameraReady(false);
-    setScanning(false);
-    if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-  }, []);
-
-  // Scan frame — sends frame to API for recognition
-  const scanFrame = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || !scanning) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = 320;
-    canvas.height = 240;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0, 320, 240);
-
-    setScanPulse(true);
-    setTimeout(() => setScanPulse(false), 300);
-
-    try {
-      const blob = await new Promise<Blob>((resolve) =>
-        canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.7)
-      );
-      const formData = new FormData();
-      formData.append("frame", blob, "frame.jpg");
-
-      const res = await fetch("/api/vision/scan", { method: "POST", body: formData });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.profile) {
-          setProfile(data.profile);
-          setScanning(false);
-          // Haptic feedback
-          if (navigator.vibrate) navigator.vibrate(200);
-        }
-      }
-    } catch { /* silent */ }
-  }, [scanning]);
-
-  // Auto-scan every 2 seconds
-  useEffect(() => {
-    if (scanning && cameraReady) {
-      scanIntervalRef.current = setInterval(scanFrame, 2000);
-      return () => { if (scanIntervalRef.current) clearInterval(scanIntervalRef.current); };
-    }
-  }, [scanning, cameraReady, scanFrame]);
-
-  // Demo mode — load demo profile
-  const loadDemo = async () => {
-    setDemoMode(true);
-    setProfile({
-      name: "Juan Diego",
-      handle: "@jdpd",
-      bio: "Creador de VRTX. Tech & Innovation.",
-      avatar_url: "",
-      theme: "cyber",
-      active_mode: "parche",
-      social_links: { instagram: "jdpalacios", linkedin: "juandiegopalacios" },
-      main_sport: "Running",
-      interests: ["tech", "coffee", "running", "craft-beer"],
-      privacy: { showBio: true, showSocial: true, showSport: true, showInterests: true },
-    });
+  // Open native camera via file input (works on ALL iOS versions)
+  const openCamera = () => {
+    fileInputRef.current?.click();
   };
 
-  // Cleanup
-  useEffect(() => {
-    return () => stopCamera();
-  }, [stopCamera]);
+  // Handle captured photo
+  const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Show captured image
+    const url = URL.createObjectURL(file);
+    setCapturedImage(url);
+    setScanning(true);
+    setScanPhase(1); // analyzing
+
+    // Simulate AR scanning phases
+    await new Promise(r => setTimeout(r, 1500));
+    setScanPhase(2); // found
+
+    await new Promise(r => setTimeout(r, 800));
+
+    // TODO: In production, send image to /api/vision/scan for real recognition
+    // For now, show demo profile
+    setProfile(DEMO_PROFILE);
+    setScanning(false);
+
+    // Haptic feedback
+    if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
+
+    // Reset input so same image can be re-captured
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // Load demo without camera
+  const loadDemo = () => {
+    setCapturedImage(null);
+    setScanPhase(2);
+    setProfile(DEMO_PROFILE);
+  };
+
+  // Reset
+  const reset = () => {
+    setProfile(null);
+    setCapturedImage(null);
+    setScanPhase(0);
+    setScanning(false);
+  };
 
   const themeColor = profile ? THEME_COLORS[profile.theme] || "#00d4ff" : "#00d4ff";
 
   return (
     <div className="min-h-screen bg-[#060810] text-white relative overflow-hidden">
+      {/* Hidden file input — this is the iOS-compatible camera trigger */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleCapture}
+        className="hidden"
+      />
+
       {/* Ambient glow */}
       <div
         className="fixed inset-0 pointer-events-none transition-all duration-1000"
@@ -226,17 +141,17 @@ export default function VisionPage() {
             <p className="text-[10px] text-gray-500 tracking-widest uppercase">Realidad Aumentada</p>
           </div>
         </div>
-        {cameraReady && (
-          <button onClick={stopCamera} className="text-xs text-red-400 border border-red-400/30 px-3 py-1.5 rounded-lg">
-            Cerrar cámara
+        {profile && (
+          <button onClick={reset} className="text-xs text-gray-400 border border-gray-700 px-3 py-1.5 rounded-lg">
+            ← Volver
           </button>
         )}
       </header>
 
       {/* Main Content */}
       <main className="relative z-10 px-6 pb-24">
-        {!cameraReady && !profile ? (
-          /* Landing state */
+        {!profile && !scanning ? (
+          /* ── Landing state ── */
           <div className="flex flex-col items-center justify-center min-h-[70vh] text-center">
             <div className="relative mb-8">
               <div className="w-32 h-32 rounded-full border-2 border-cyan-500/30 flex items-center justify-center">
@@ -251,63 +166,33 @@ export default function VisionPage() {
               Escanea gorras <span style={{ color: themeColor }}>VRTX</span>
             </h2>
             <p className="text-gray-400 text-sm max-w-xs mb-8 leading-relaxed">
-              Apunta tu cámara a cualquier gorra VRTX y descubre el perfil de quien la usa.
+              Toma una foto de cualquier gorra VRTX y descubre el perfil de quien la usa.
               Solo verás lo que el usuario haya autorizado.
             </p>
 
-            {isInAppBrowser ? (
-              <>
-                <div className="px-6 py-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/30 text-center max-w-xs">
-                  <p className="text-sm text-yellow-300 mb-3">
-                    La cámara no funciona en navegadores internos de apps. Abre en Safari:
-                  </p>
-                  <button
-                    onClick={() => {
-                      // Try to open in Safari
-                      window.location.href = window.location.href;
-                    }}
-                    className="px-6 py-3 rounded-xl font-bold text-sm bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
-                  >
-                    Copia este link y ábrelo en Safari ↗
-                  </button>
-                  <p className="text-[10px] text-yellow-500/60 mt-2 font-mono select-all">
-                    vrtx-seven.vercel.app/vision
-                  </p>
-                </div>
-                <button
-                  onClick={loadDemo}
-                  className="mt-4 text-xs text-gray-500 hover:text-gray-300 transition underline"
-                >
-                  Ver demo sin cámara
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={startCamera}
-                  className="px-8 py-4 rounded-2xl font-bold text-lg transition-all"
-                  style={{
-                    background: `linear-gradient(135deg, ${themeColor}, ${themeColor}88)`,
-                    boxShadow: `0 0 30px ${themeColor}40`,
-                  }}
-                >
-                  📸 Activar VRTX Vision
-                </button>
+            <button
+              onClick={openCamera}
+              className="px-8 py-4 rounded-2xl font-bold text-lg transition-all active:scale-95"
+              style={{
+                background: `linear-gradient(135deg, ${themeColor}, ${themeColor}88)`,
+                boxShadow: `0 0 30px ${themeColor}40`,
+              }}
+            >
+              📸 Escanear Gorra
+            </button>
 
-                <button
-                  onClick={loadDemo}
-                  className="mt-4 text-xs text-gray-500 hover:text-gray-300 transition underline"
-                >
-                  Ver demo sin cámara
-                </button>
-              </>
-            )}
+            <button
+              onClick={loadDemo}
+              className="mt-4 text-xs text-gray-500 hover:text-gray-300 transition underline"
+            >
+              Ver demo sin cámara
+            </button>
 
             <div className="mt-12 grid grid-cols-3 gap-6 text-center">
               {[
                 { icon: "🧢", label: "Reconoce gorras" },
                 { icon: "🔒", label: "Privacidad total" },
-                { icon: "⚡", label: "Tiempo real" },
+                { icon: "⚡", label: "Instantáneo" },
               ].map((f) => (
                 <div key={f.label}>
                   <span className="text-2xl">{f.icon}</span>
@@ -316,83 +201,75 @@ export default function VisionPage() {
               ))}
             </div>
           </div>
-        ) : !profile ? (
-          /* Camera scanning state */
-          <div className="flex flex-col items-center">
-            <div className="relative w-full max-w-md rounded-2xl overflow-hidden border-2 border-cyan-500/20">
-              {/* eslint-disable-next-line */}
-              <video ref={videoRef} autoPlay playsInline muted webkit-playsinline="true" className="w-full rounded-2xl" style={{ objectFit: "cover" }} />
+        ) : scanning ? (
+          /* ── Scanning/analyzing state ── */
+          <div className="flex flex-col items-center justify-center min-h-[70vh]">
+            {/* Show captured image with scan overlay */}
+            {capturedImage && (
+              <div className="relative w-full max-w-sm rounded-2xl overflow-hidden border-2 border-cyan-500/30 mb-6">
+                <img src={capturedImage} alt="Captured" className="w-full rounded-2xl" />
+                
+                {/* Scan overlay */}
+                <div className="absolute inset-0">
+                  {/* Corner markers */}
+                  <div className="absolute top-3 left-3 w-8 h-8 border-l-2 border-t-2 border-cyan-400 rounded-tl-lg" />
+                  <div className="absolute top-3 right-3 w-8 h-8 border-r-2 border-t-2 border-cyan-400 rounded-tr-lg" />
+                  <div className="absolute bottom-3 left-3 w-8 h-8 border-l-2 border-b-2 border-cyan-400 rounded-bl-lg" />
+                  <div className="absolute bottom-3 right-3 w-8 h-8 border-r-2 border-b-2 border-cyan-400 rounded-br-lg" />
 
-              {/* Scan overlay */}
-              <div className="absolute inset-0 pointer-events-none">
-                {/* Corner markers */}
-                <div className="absolute top-4 left-4 w-8 h-8 border-l-2 border-t-2 border-cyan-400/80 rounded-tl-lg" />
-                <div className="absolute top-4 right-4 w-8 h-8 border-r-2 border-t-2 border-cyan-400/80 rounded-tr-lg" />
-                <div className="absolute bottom-4 left-4 w-8 h-8 border-l-2 border-b-2 border-cyan-400/80 rounded-bl-lg" />
-                <div className="absolute bottom-4 right-4 w-8 h-8 border-r-2 border-b-2 border-cyan-400/80 rounded-br-lg" />
+                  {/* Scanning line */}
+                  <div className="absolute inset-x-3 top-0 h-full overflow-hidden">
+                    <div
+                      className="w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent"
+                      style={{
+                        animation: "scanline 1.5s ease-in-out infinite",
+                      }}
+                    />
+                  </div>
 
-                {/* Center crosshair */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <div
-                    className={`w-16 h-16 rounded-full border-2 transition-all duration-300 ${
-                      scanPulse ? "border-cyan-400 scale-110" : "border-cyan-500/30 scale-100"
-                    }`}
-                  >
-                    <div className="w-full h-full rounded-full border border-cyan-500/10 flex items-center justify-center">
-                      <div className={`w-2 h-2 rounded-full ${scanPulse ? "bg-cyan-400" : "bg-cyan-500/50"}`} />
+                  {/* Status */}
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-4 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className={`w-2 h-2 rounded-full animate-pulse ${scanPhase === 2 ? "bg-green-400" : "bg-cyan-400"}`} />
+                      <span className={`text-xs font-mono tracking-wider ${scanPhase === 2 ? "text-green-300" : "text-cyan-300"}`}>
+                        {scanPhase === 1 ? "ANALIZANDO GORRA..." : scanPhase === 2 ? "¡PERFIL DETECTADO!" : "PROCESANDO..."}
+                      </span>
                     </div>
                   </div>
                 </div>
-
-                {/* Scanning line animation */}
-                <div className="absolute inset-x-4 top-0 h-full overflow-hidden">
-                  <div
-                    className="w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50 animate-bounce"
-                    style={{ animationDuration: "2s" }}
-                  />
-                </div>
               </div>
+            )}
 
-              {/* Status bar */}
-              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-                  <span className="text-xs text-cyan-300 font-mono tracking-wider">ESCANEANDO...</span>
+            {!capturedImage && (
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 border-2 border-cyan-500/30 rounded-full flex items-center justify-center">
+                  <div className="w-3 h-3 bg-cyan-400 rounded-full animate-ping" />
                 </div>
-                <p className="text-[10px] text-gray-400 text-center mt-1">
-                  Apunta a una gorra VRTX
-                </p>
+                <p className="text-sm text-cyan-300 font-mono">Procesando...</p>
               </div>
-            </div>
-
-            {/* Demo button while scanning */}
-            <button
-              onClick={loadDemo}
-              className="mt-6 text-xs text-gray-500 hover:text-cyan-400 transition border border-gray-700 px-4 py-2 rounded-lg"
-            >
-              ⚡ Simular detección (demo)
-            </button>
-
-            <canvas ref={canvasRef} className="hidden" />
+            )}
           </div>
-        ) : (
-          /* Profile detected — AR card */
+        ) : profile ? (
+          /* ── Profile detected ── */
           <div className="flex flex-col items-center">
-            {/* Camera background (if active) */}
-            {cameraReady && (
-              <div className="relative w-full max-w-md rounded-2xl overflow-hidden mb-4 opacity-30">
-                {/* eslint-disable-next-line */}
-              <video ref={videoRef} autoPlay playsInline muted webkit-playsinline="true" className="w-full rounded-2xl" style={{ objectFit: "cover" }} />
+            {/* Captured image (small) */}
+            {capturedImage && (
+              <div className="relative w-24 h-24 rounded-2xl overflow-hidden border-2 mb-4" style={{ borderColor: `${themeColor}50` }}>
+                <img src={capturedImage} alt="" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                  <span className="text-green-400 text-2xl">✓</span>
+                </div>
               </div>
             )}
 
             {/* AR Profile Card */}
             <div
-              className="w-full max-w-md rounded-3xl p-6 relative overflow-hidden animate-in slide-in-from-bottom-4"
+              className="w-full max-w-md rounded-3xl p-6 relative overflow-hidden"
               style={{
                 background: `linear-gradient(135deg, ${themeColor}15, #0a0e18, ${themeColor}08)`,
                 border: `1px solid ${themeColor}30`,
                 boxShadow: `0 0 40px ${themeColor}15, inset 0 1px 0 ${themeColor}20`,
+                animation: "fadeSlideUp 0.5s ease-out",
               }}
             >
               {/* Detected badge */}
@@ -410,21 +287,15 @@ export default function VisionPage() {
                   className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold"
                   style={{ background: `${themeColor}20`, border: `1px solid ${themeColor}30` }}
                 >
-                  {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt="" className="w-full h-full rounded-2xl object-cover" />
-                  ) : (
-                    <span style={{ color: themeColor }}>{profile.name[0]}</span>
-                  )}
+                  <span style={{ color: themeColor }}>{profile.name[0]}</span>
                 </div>
                 <div>
                   <h3 className="text-xl font-bold">{profile.name}</h3>
                   <p className="text-sm" style={{ color: `${themeColor}aa` }}>{profile.handle}</p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full"
-                      style={{ background: `${themeColor}15`, color: themeColor, border: `1px solid ${themeColor}30` }}>
-                      {MODE_LABELS[profile.active_mode] || profile.active_mode}
-                    </span>
-                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full mt-1 inline-block"
+                    style={{ background: `${themeColor}15`, color: themeColor, border: `1px solid ${themeColor}30` }}>
+                    {MODE_LABELS[profile.active_mode] || profile.active_mode}
+                  </span>
                 </div>
               </div>
 
@@ -452,11 +323,8 @@ export default function VisionPage() {
                   <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 px-1">Intereses</p>
                   <div className="flex flex-wrap gap-1.5">
                     {profile.interests.slice(0, 8).map((i) => (
-                      <span
-                        key={i}
-                        className="text-xs px-2.5 py-1 rounded-full"
-                        style={{ background: `${themeColor}12`, color: `${themeColor}cc`, border: `1px solid ${themeColor}20` }}
-                      >
+                      <span key={i} className="text-xs px-2.5 py-1 rounded-full"
+                        style={{ background: `${themeColor}12`, color: `${themeColor}cc`, border: `1px solid ${themeColor}20` }}>
                         {i}
                       </span>
                     ))}
@@ -470,21 +338,16 @@ export default function VisionPage() {
                   <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 px-1">Conectar</p>
                   <div className="flex gap-2">
                     {Object.entries(profile.social_links).map(([platform, username]) => (
-                      <a
-                        key={platform}
+                      <a key={platform}
                         href={
                           platform === "instagram" ? `https://instagram.com/${username}` :
                           platform === "linkedin" ? `https://linkedin.com/in/${username}` :
-                          platform === "twitter" ? `https://twitter.com/${username}` :
-                          platform === "tiktok" ? `https://tiktok.com/@${username}` : "#"
+                          platform === "twitter" ? `https://twitter.com/${username}` : "#"
                         }
-                        target="_blank"
-                        rel="noopener"
-                        className="px-3 py-2 rounded-xl text-xs font-medium transition-all hover:scale-105"
-                        style={{ background: `${themeColor}15`, color: themeColor, border: `1px solid ${themeColor}25` }}
-                      >
-                        {platform === "instagram" ? "📷" : platform === "linkedin" ? "💼" : platform === "twitter" ? "🐦" : platform === "tiktok" ? "🎵" : "🔗"}
-                        {" "}{platform}
+                        target="_blank" rel="noopener"
+                        className="px-3 py-2 rounded-xl text-xs font-medium transition-all active:scale-95"
+                        style={{ background: `${themeColor}15`, color: themeColor, border: `1px solid ${themeColor}25` }}>
+                        {platform === "instagram" ? "📷" : platform === "linkedin" ? "💼" : "🔗"} {platform}
                       </a>
                     ))}
                   </div>
@@ -497,59 +360,48 @@ export default function VisionPage() {
                   <span className="text-[10px] text-gray-600 font-mono">POWERED BY</span>
                   <span className="text-xs font-bold tracking-widest" style={{ color: themeColor }}>VRTX</span>
                 </div>
-                <span className="text-[10px] text-gray-600 font-mono">
-                  🔒 Perfil verificado
-                </span>
+                <span className="text-[10px] text-gray-600 font-mono">🔒 Verificado</span>
               </div>
             </div>
 
             {/* Actions */}
             <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => { setProfile(null); setDemoMode(false); if (cameraReady) setScanning(true); }}
-                className="px-6 py-3 rounded-xl text-sm font-semibold border border-gray-700 text-gray-300 hover:bg-white/5 transition"
-              >
-                🔄 Escanear otro
+              <button onClick={openCamera}
+                className="px-5 py-3 rounded-xl text-sm font-semibold border border-gray-700 text-gray-300 active:scale-95 transition">
+                📸 Escanear otro
               </button>
-              <button
-                onClick={() => {
-                  if (navigator.share) {
-                    navigator.share({ title: `${profile.name} en VRTX`, url: window.location.href });
-                  }
+              <button onClick={() => {
+                  if (navigator.share) navigator.share({ title: `${profile.name} en VRTX`, url: window.location.href });
                 }}
-                className="px-6 py-3 rounded-xl text-sm font-semibold transition"
-                style={{ background: `${themeColor}20`, color: themeColor, border: `1px solid ${themeColor}30` }}
-              >
+                className="px-5 py-3 rounded-xl text-sm font-semibold transition active:scale-95"
+                style={{ background: `${themeColor}20`, color: themeColor, border: `1px solid ${themeColor}30` }}>
                 📤 Compartir
               </button>
             </div>
           </div>
-        )}
+        ) : null}
       </main>
 
-      {/* Bottom nav hint */}
-      {!profile && (
+      {/* Footer */}
+      {!profile && !scanning && (
         <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-[#060810] to-transparent p-6 text-center">
-          <p className="text-[10px] text-gray-600 font-mono tracking-wider">
-            VRTX VISION v1.0 — {cameraReady ? "CÁMARA ACTIVA" : "CÁMARA INACTIVA"}
-          </p>
+          <p className="text-[10px] text-gray-600 font-mono tracking-wider">VRTX VISION v1.0</p>
         </div>
       )}
 
-      {/* Debug message */}
-      {debugMsg && (
-        <div className="fixed top-20 inset-x-6 bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 text-center z-50">
-          <p className="text-sm text-cyan-400 font-mono">{debugMsg}</p>
-        </div>
-      )}
-
-      {/* Error toast */}
-      {error && (
-        <div className="fixed top-20 inset-x-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center z-50">
-          <p className="text-sm text-red-400">{error}</p>
-          <button onClick={() => setError("")} className="text-xs text-red-500/50 mt-2 underline">Cerrar</button>
-        </div>
-      )}
+      {/* CSS animations */}
+      <style jsx>{`
+        @keyframes scanline {
+          0% { transform: translateY(0); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translateY(400px); opacity: 0; }
+        }
+        @keyframes fadeSlideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
