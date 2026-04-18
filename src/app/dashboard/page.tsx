@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase-browser";
 import { themes, modes, ThemeName, ModeName } from "@/lib/themes";
 import { preferenceCategories } from "@/lib/preferences";
 
-type Tab = "radar" | "perfil" | "disenos" | "analytics" | "sport" | "tienda" | "config";
+type Tab = "radar" | "vision" | "perfil" | "disenos" | "analytics" | "sport" | "tienda" | "config";
 
 function DashboardContent() {
   const router = useRouter();
@@ -174,6 +174,7 @@ function DashboardContent() {
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "radar", label: "Radar", icon: "📡" },
+    { id: "vision", label: "Vision", icon: "👁️" },
     { id: "perfil", label: "Perfil", icon: "👤" },
     { id: "disenos", label: "Diseños", icon: "🎨" },
     { id: "analytics", label: "Analytics", icon: "📊" },
@@ -240,6 +241,32 @@ function DashboardContent() {
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
 
         {/* ===== RADAR TAB ===== */}
+        {activeTab === "vision" && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-display text-2xl text-accent flex items-center gap-2">👁️ VRTX Vision</h2>
+              <p className="text-muted text-sm mt-1">Realidad aumentada — escanea gorras VRTX a distancia</p>
+            </div>
+            <div className="card p-6 text-center space-y-4">
+              <div className="w-20 h-20 mx-auto rounded-full border-2 border-accent/30 flex items-center justify-center">
+                <span className="text-4xl">👁️</span>
+              </div>
+              <h3 className="text-lg font-bold">Escanea perfiles con tu cámara</h3>
+              <p className="text-muted text-sm max-w-md mx-auto">
+                Apunta tu cámara a cualquier persona con gorra VRTX y ve su perfil en realidad aumentada. 
+                Solo verás la información que el usuario haya autorizado.
+              </p>
+              <a
+                href="/vision"
+                className="inline-block px-8 py-3 rounded-xl font-bold text-lg transition-all bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30"
+              >
+                📸 Abrir VRTX Vision
+              </a>
+              <p className="text-[10px] text-muted">Requiere acceso a la cámara del dispositivo</p>
+            </div>
+          </div>
+        )}
+
         {activeTab === "radar" && (
           <>
             <div className="flex items-center justify-between">
