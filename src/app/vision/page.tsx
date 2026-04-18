@@ -45,6 +45,17 @@ export default function VisionPage() {
   const [scanPulse, setScanPulse] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const [debugMsg, setDebugMsg] = useState("");
+  const [isInAppBrowser, setIsInAppBrowser] = useState(false);
+
+  // Detect in-app browsers (Telegram, Instagram, Facebook, etc.)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const ua = navigator.userAgent.toLowerCase();
+      const inApp = /telegram|instagram|fbav|fban|line|twitter|snapchat|whatsapp|wv\)/.test(ua) 
+        || (!/safari/i.test(ua) && /applewebkit/i.test(ua)); // iOS WebView without Safari
+      setIsInAppBrowser(inApp);
+    }
+  }, []);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Start camera (iOS compatible)
@@ -244,23 +255,53 @@ export default function VisionPage() {
               Solo verás lo que el usuario haya autorizado.
             </p>
 
-            <button
-              onClick={startCamera}
-              className="px-8 py-4 rounded-2xl font-bold text-lg transition-all"
-              style={{
-                background: `linear-gradient(135deg, ${themeColor}, ${themeColor}88)`,
-                boxShadow: `0 0 30px ${themeColor}40`,
-              }}
-            >
-              📸 Activar VRTX Vision
-            </button>
+            {isInAppBrowser ? (
+              <>
+                <div className="px-6 py-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/30 text-center max-w-xs">
+                  <p className="text-sm text-yellow-300 mb-3">
+                    La cámara no funciona en navegadores internos de apps. Abre en Safari:
+                  </p>
+                  <button
+                    onClick={() => {
+                      // Try to open in Safari
+                      window.location.href = window.location.href;
+                    }}
+                    className="px-6 py-3 rounded-xl font-bold text-sm bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
+                  >
+                    Copia este link y ábrelo en Safari ↗
+                  </button>
+                  <p className="text-[10px] text-yellow-500/60 mt-2 font-mono select-all">
+                    vrtx-seven.vercel.app/vision
+                  </p>
+                </div>
+                <button
+                  onClick={loadDemo}
+                  className="mt-4 text-xs text-gray-500 hover:text-gray-300 transition underline"
+                >
+                  Ver demo sin cámara
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={startCamera}
+                  className="px-8 py-4 rounded-2xl font-bold text-lg transition-all"
+                  style={{
+                    background: `linear-gradient(135deg, ${themeColor}, ${themeColor}88)`,
+                    boxShadow: `0 0 30px ${themeColor}40`,
+                  }}
+                >
+                  📸 Activar VRTX Vision
+                </button>
 
-            <button
-              onClick={loadDemo}
-              className="mt-4 text-xs text-gray-500 hover:text-gray-300 transition underline"
-            >
-              Ver demo sin cámara
-            </button>
+                <button
+                  onClick={loadDemo}
+                  className="mt-4 text-xs text-gray-500 hover:text-gray-300 transition underline"
+                >
+                  Ver demo sin cámara
+                </button>
+              </>
+            )}
 
             <div className="mt-12 grid grid-cols-3 gap-6 text-center">
               {[
