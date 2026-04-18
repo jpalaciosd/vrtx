@@ -46,21 +46,46 @@ export default function VisionPage() {
   const [demoMode, setDemoMode] = useState(false);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Start camera
+  // Start camera (iOS compatible)
   const startCamera = useCallback(async () => {
     try {
       setError("");
+      
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError("Tu navegador no soporta acceso a la cámara. Usa Safari en iPhone.");
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: "environment" },
+        audio: false,
       });
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        videoRef.current.setAttribute("playsinline", "true");
+        videoRef.current.setAttribute("webkit-playsinline", "true");
+        videoRef.current.muted = true;
+        
+        // iOS requires waiting for loadedmetadata before play
+        await new Promise<void>((resolve) => {
+          videoRef.current!.onloadedmetadata = () => resolve();
+        });
+        
+        await videoRef.current.play();
         setCameraReady(true);
         setScanning(true);
       }
-    } catch (e) {
-      setError("No se pudo acceder a la cámara. Verifica los permisos.");
+    } catch (e: unknown) {
+      const err = e as Error;
+      if (err.name === "NotAllowedError") {
+        setError("Permiso de cámara denegado. Ve a Ajustes > Safari > Cámara y permite el acceso.");
+      } else if (err.name === "NotFoundError") {
+        setError("No se encontró cámara en este dispositivo.");
+      } else {
+        setError(`Error al acceder a la cámara: ${err.message || "desconocido"}`);
+      }
     }
   }, []);
 
@@ -230,7 +255,8 @@ export default function VisionPage() {
           /* Camera scanning state */
           <div className="flex flex-col items-center">
             <div className="relative w-full max-w-md rounded-2xl overflow-hidden border-2 border-cyan-500/20">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-2xl" />
+              {/* eslint-disable-next-line */}
+              <video ref={videoRef} autoPlay playsInline muted webkit-playsinline="true" className="w-full rounded-2xl" style={{ objectFit: "cover" }} />
 
               {/* Scan overlay */}
               <div className="absolute inset-0 pointer-events-none">
@@ -290,7 +316,8 @@ export default function VisionPage() {
             {/* Camera background (if active) */}
             {cameraReady && (
               <div className="relative w-full max-w-md rounded-2xl overflow-hidden mb-4 opacity-30">
-                <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-2xl" />
+                {/* eslint-disable-next-line */}
+              <video ref={videoRef} autoPlay playsInline muted webkit-playsinline="true" className="w-full rounded-2xl" style={{ objectFit: "cover" }} />
               </div>
             )}
 
