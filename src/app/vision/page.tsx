@@ -54,13 +54,14 @@ export default function VisionPage() {
   const [scanning, setScanning] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [scanPhase, setScanPhase] = useState(0); // 0=idle, 1=analyzing, 2=found, 3=not found
+  const [scanMessage, setScanMessage] = useState("");
 
   // Open native camera via file input (works on ALL iOS versions)
   const openCamera = () => {
     fileInputRef.current?.click();
   };
 
-  // Handle captured photo
+  // Handle captured photo — sends to OpenAI Vision for real detection
   const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -71,21 +72,43 @@ export default function VisionPage() {
     setScanning(true);
     setScanPhase(1); // analyzing
 
-    // Simulate AR scanning phases
-    await new Promise(r => setTimeout(r, 1500));
-    setScanPhase(2); // found
+    try {
+      // Send to API for real detection
+      const formData = new FormData();
+      formData.append("frame", file, "capture.jpg");
 
-    await new Promise(r => setTimeout(r, 800));
+      const res = await fetch("/api/vision/scan", { method: "POST", body: formData });
+      const data = await res.json();
 
-    // TODO: In production, send image to /api/vision/scan for real recognition
-    // For now, show demo profile
-    setProfile(DEMO_PROFILE);
-    setScanning(false);
+      if (data.detected && data.profile) {
+        setScanPhase(2); // found
+        await new Promise(r => setTimeout(r, 800));
+        setProfile(data.profile);
+        if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
+      } else if (data.detected && !data.profile) {
+        setScanPhase(3); // cap found but no profile
+        setScanMessage("Gorra detectada, pero no está registrada en VRTX");
+        await new Promise(r => setTimeout(r, 2500));
+        setScanPhase(0);
+        setScanning(false);
+        setCapturedImage(null);
+      } else {
+        setScanPhase(3); // not found
+        setScanMessage(data.message || "No se detectó una gorra en la imagen");
+        await new Promise(r => setTimeout(r, 2500));
+        setScanPhase(0);
+        setScanning(false);
+        setCapturedImage(null);
+      }
+    } catch {
+      setScanPhase(3);
+      setScanMessage("Error al analizar la imagen. Intenta de nuevo.");
+      await new Promise(r => setTimeout(r, 2000));
+      setScanPhase(0);
+      setScanning(false);
+      setCapturedImage(null);
+    }
 
-    // Haptic feedback
-    if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
-
-    // Reset input so same image can be re-captured
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -230,9 +253,9 @@ export default function VisionPage() {
                   {/* Status */}
                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-4 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <div className={`w-2 h-2 rounded-full animate-pulse ${scanPhase === 2 ? "bg-green-400" : "bg-cyan-400"}`} />
-                      <span className={`text-xs font-mono tracking-wider ${scanPhase === 2 ? "text-green-300" : "text-cyan-300"}`}>
-                        {scanPhase === 1 ? "ANALIZANDO GORRA..." : scanPhase === 2 ? "¡PERFIL DETECTADO!" : "PROCESANDO..."}
+                      <div className={`w-2 h-2 rounded-full animate-pulse ${scanPhase === 2 ? "bg-green-400" : scanPhase === 3 ? "bg-red-400" : "bg-cyan-400"}`} />
+                      <span className={`text-xs font-mono tracking-wider ${scanPhase === 2 ? "text-green-300" : scanPhase === 3 ? "text-red-300" : "text-cyan-300"}`}>
+                        {scanPhase === 1 ? "ANALIZANDO CON IA..." : scanPhase === 2 ? "¡PERFIL DETECTADO!" : scanPhase === 3 ? (scanMessage || "NO DETECTADO") : "PROCESANDO..."}
                       </span>
                     </div>
                   </div>
