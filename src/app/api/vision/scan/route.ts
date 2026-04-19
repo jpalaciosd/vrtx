@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     // Get all users with designs
     const { data: designs } = await supabase
       .from("designs")
-      .select("id, user_id, prompt, style, image_url")
+      .select("id, owner_id, prompt_used, estilo, image_url, name")
       .order("created_at", { ascending: false })
       .limit(20);
 
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
     if (designs && designs.length > 0) {
       // Try to match by color/style similarity using OpenAI
       const designDescriptions = designs.map((d, i) => 
-        `${i}: style="${d.style}", prompt="${d.prompt}"`
+        `${i}: style="${d.estilo}", name="${d.name}", prompt="${d.prompt_used}"`
       ).join("\n");
 
       const matchRes = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -138,7 +138,7 @@ ${designDescriptions}
         const matchData = await matchRes.json();
         const matchIdx = parseInt(matchData.choices?.[0]?.message?.content?.trim() || "-1");
         if (matchIdx >= 0 && matchIdx < designs.length) {
-          matchedUserId = designs[matchIdx].user_id;
+          matchedUserId = designs[matchIdx].owner_id;
         }
       }
     }

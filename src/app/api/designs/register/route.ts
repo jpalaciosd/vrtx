@@ -18,7 +18,13 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await supabase
       .from("designs")
-      .insert({ user_id, prompt, style, image_url })
+      .insert({
+        owner_id: user_id,
+        name: prompt,
+        prompt_used: prompt,
+        estilo: style,
+        image_url,
+      })
       .select()
       .single();
 
