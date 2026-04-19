@@ -84,6 +84,7 @@ export default function VisionPage() {
         setScanPhase(2); // found
         await new Promise(r => setTimeout(r, 800));
         setProfile(data.profile);
+        setScanning(false);
         if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
       } else if (data.detected && !data.profile) {
         setScanPhase(3); // cap found but no profile
