@@ -9,8 +9,9 @@ export async function POST(req: NextRequest) {
 
     // Use pg to run DDL directly
     const { Pool } = require("pg");
+    const dbUrl = (process.env.DATABASE_URL || "").replace(/[?&]sslmode=[^&]*/g, "");
     const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: dbUrl,
       ssl: { rejectUnauthorized: false },
     });
 
